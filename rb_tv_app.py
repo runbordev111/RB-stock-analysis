@@ -23,6 +23,12 @@ def login_shioaji():
     return api
 
 # 3. 接收 TradingView 訊號的路徑=============================================
+# Version 1.0.0
+#"ticker": "{{ticker}}",    // TradingView 會自動填入股票代號 (例如 2330)
+#"price": "{{close}}",      // 會填入觸發當時的收盤價
+#"support": "1000",         // 這是您手動填入的支撐位 (目前暫代 200MA)
+#"action": "buy"            // 告訴您的程式這是一筆「買入」訊號
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     # 1. 建議改用 JSON 解析，方便邏輯判斷
