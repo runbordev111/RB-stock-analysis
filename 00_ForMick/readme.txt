@@ -35,14 +35,14 @@ C:\ngrok\RB_DataMining>
 git add .
 git commit -m "V1.0.0"
 git push origin master
-//===========================================================================
+//===========================================================================//
 #GitHub git push to ngrok (本機下載到ngrok)
 cd C:\ngrok
 git clone https://github.com/RTKmick/RB_DataMining.git
 
 cd C:\ngrok\RB_DataMining
 git pull origin master
-
+//===========================================================================//
 # 建立並啟動環境
 python -m venv venv
 .\venv\Scripts\activate
@@ -50,3 +50,14 @@ python -m venv venv
 # 一次裝好所有裝備
 pip install --upgrade pip
 pip install flask requests shioaji python-dotenv python-telegram-bot pandas
+//============================================================================
+# ======================================================
+# 3. 接收 TradingView 訊號的路徑
+#=======================================================
+# Version 1.0.0
+#"ticker": "{{ticker}}",    // TradingView 會自動填入股票代號 (例如 2330)
+#"price": "{{close}}",      // 會填入觸發當時的收盤價
+#"support": "1000",         // 這是您手動填入的支撐位 (目前暫代 200MA)
+#"action": "buy"            // 告訴您的程式這是一筆「買入」訊號
+
+
