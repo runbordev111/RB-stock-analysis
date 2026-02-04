@@ -1,226 +1,305 @@
-# scraper_chip.py
-
 import os
 import time
 import requests
 import pandas as pd
+import urllib3
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# 禁用 SSL 警告（若你環境 SSL 正常，建議改回 verify=True）
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # =============================
 # 基本設定
 # =============================
-load_dotenv()
 DATA_PATH = "./data"
 os.makedirs(DATA_PATH, exist_ok=True)
 
-FINMIND_TOKEN = os.getenv("FINMIND_API_TOKEN", "").strip()
+FINMIND_V4_DATA_URL = "https://api.finmindtrade.com/api/v4/data"
+# Sponsor 分點 endpoint（重點：不是 /api/v4/data）
+FINMIND_TDR_URL = "https://api.finmindtrade.com/api/v4/taiwan_stock_trading_daily_report"
 
-TWSE_T86_URL = "https://www.twse.com.tw/rwd/zh/fund/T86"
-FINMIND_V4_URL = "https://api.finmindtrade.com/api/v4/data"
 
-
-def _now_str():
+def now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# =============================
-# 數據清洗
-# =============================
-def clean_numeric_columns(df: pd.DataFrame, columns):
-    for col in columns:
-        if col not in df.columns:
-            continue
-        s = df[col].astype(str)
-        s = s.str.replace(",", "", regex=False)
-        s = s.str.replace("null", "0", regex=False)
-        s = s.str.replace("--", "0", regex=False)
-        s = s.str.strip()
-        df[col] = pd.to_numeric(s, errors="coerce").fillna(0)
-    return df
+# ======================================================
+# A. API Client 層：處理連線、授權與容錯
+# ======================================================
+class FinMindClient:
+    def __init__(self, token: str, verify_ssl: bool = False):
+        self.token = (token or "").strip()
+        self.verify_ssl = verify_ssl
+        self.session = self._build_session()
 
+    def _build_session(self) -> requests.Session:
+        session = requests.Session()
 
-def auto_clean_csv(file_path: str):
-    if not os.path.exists(file_path):
-        return None
-    try:
-        df = pd.read_csv(file_path)
-    except Exception as e:
-        print(f"❌ [{_now_str()}] 讀取 CSV 失敗：{file_path} | {repr(e)}")
-        return None
-
-    if "日期" in df.columns:
-        df["日期"] = df["日期"].astype(str).str.replace("-", "", regex=False).str.strip()
-        df = (
-            df.drop_duplicates(subset=["日期"], keep="last")
-            .sort_values("日期")
-            .reset_index(drop=True)
+        # Retry：針對頻率限制與暫時性錯誤做 backoff
+        # connect/read 分開設定，且允許 GET retry
+        retries = Retry(
+            total=5,
+            connect=5,
+            read=5,
+            backoff_factor=1.0,
+            status_forcelist=[408, 429, 500, 502, 503, 504],
+            allowed_methods=frozenset(["GET"]),
+            raise_on_status=False,
+            respect_retry_after_header=True,
         )
+
+        adapter = HTTPAdapter(max_retries=retries, pool_connections=20, pool_maxsize=20)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+        if self.token:
+            session.headers.update({"Authorization": f"Bearer {self.token}"})
+
+        return session
+
+    def _log(self, tag: str, url: str, params: dict, http_status: int, api_status, msg: str, latency: float):
+        # 簡潔且可定位問題的 log
+        dataset = params.get("dataset", "")
+        data_id = params.get("data_id", "")
+        date = params.get("date", "")
+        start_date = params.get("start_date", "")
+        end_date = params.get("end_date", "")
+
+        print(
+            f"[{now_str()}] {tag} | http={http_status} api={api_status} "
+            f"| dataset={dataset} data_id={data_id} date={date} "
+            f"| start={start_date} end={end_date} | latency={latency:.2f}s | msg={msg}"
+        )
+
+    def request_data(self, dataset: str, data_id: str = None, start_date: str = None, end_date: str = None) -> pd.DataFrame:
+        """
+        通用 dataset：走 /api/v4/data
+        """
+        params = {"dataset": dataset}
+        if data_id:
+            params["data_id"] = data_id
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+
+        t0 = time.time()
         try:
-            df.to_csv(file_path, index=False, encoding="utf-8-sig")
+            resp = self.session.get(
+                FINMIND_V4_DATA_URL, params=params, timeout=30, verify=self.verify_ssl
+            )
+            latency = time.time() - t0
+
+            # 解析 JSON（FinMind 回傳通常是 JSON）
+            try:
+                js = resp.json()
+            except Exception:
+                self._log("DATA", FINMIND_V4_DATA_URL, params, resp.status_code, "N/A", "non-json response", latency)
+                return pd.DataFrame()
+
+            api_status = js.get("status")
+            msg = js.get("msg", "")
+
+            self._log("DATA", FINMIND_V4_DATA_URL, params, resp.status_code, api_status, msg, latency)
+
+            if resp.status_code == 200 and api_status == 200:
+                return pd.DataFrame(js.get("data", []))
+            return pd.DataFrame()
+
         except Exception as e:
-            print(f"❌ [{_now_str()}] 寫入 CSV 失敗：{file_path} | {repr(e)}")
-    return df
+            latency = time.time() - t0
+            self._log("DATA", FINMIND_V4_DATA_URL, params, -1, "EXC", repr(e), latency)
+            return pd.DataFrame()
 
+    def request_trading_daily_report(self, stock_id: str, date_yyyy_mm_dd: str) -> pd.DataFrame:
+        """
+        Sponsor 分點：走 /api/v4/taiwan_stock_trading_daily_report
+        參數：data_id + date（單日）
+        """
+        params = {"data_id": stock_id, "date": date_yyyy_mm_dd}
 
-def save_and_merge(df: pd.DataFrame, file_name: str):
-    path = os.path.join(DATA_PATH, file_name)
-    df = df.copy()
-    df["日期"] = df["日期"].astype(str).str.replace("-", "", regex=False).str.strip()
-
-    if os.path.exists(path):
+        t0 = time.time()
         try:
-            old_df = pd.read_csv(path)
-            if "日期" in old_df.columns:
-                old_df["日期"] = old_df["日期"].astype(str).str.replace("-", "", regex=False).str.strip()
-            combined = pd.concat([old_df, df], ignore_index=True)
-            combined = combined.drop_duplicates(subset=["日期"], keep="last")
-            combined = combined.sort_values(by="日期").reset_index(drop=True)
-            combined.to_csv(path, index=False, encoding="utf-8-sig")
+            resp = self.session.get(
+                FINMIND_TDR_URL, params=params, timeout=30, verify=self.verify_ssl
+            )
+            latency = time.time() - t0
+
+            try:
+                js = resp.json()
+            except Exception:
+                self._log("TDR", FINMIND_TDR_URL, params, resp.status_code, "N/A", "non-json response", latency)
+                return pd.DataFrame()
+
+            api_status = js.get("status")
+            msg = js.get("msg", "")
+
+            self._log("TDR", FINMIND_TDR_URL, params, resp.status_code, api_status, msg, latency)
+
+            if resp.status_code == 200 and api_status == 200:
+                return pd.DataFrame(js.get("data", []))
+
+            # 權限不足提示（sponsor 常見）
+            if api_status in (401, 402, 403) or resp.status_code in (401, 402, 403):
+                print(f"⚠️ 分點資料需要 sponsor 權限或 token 無效 | api_status={api_status} | msg={msg}")
+            return pd.DataFrame()
+
         except Exception as e:
-            print(f"❌ [{_now_str()}] 合併寫入失敗：{path} | {repr(e)}")
-    else:
-        try:
-            df.to_csv(path, index=False, encoding="utf-8-sig")
-        except Exception as e:
-            print(f"❌ [{_now_str()}] 新建寫入失敗：{path} | {repr(e)}")
+            latency = time.time() - t0
+            self._log("TDR", FINMIND_TDR_URL, params, -1, "EXC", repr(e), latency)
+            return pd.DataFrame()
 
 
-# =============================
-# TWSE 法人籌碼
-# =============================
-def get_stock_chip(date_str_yyyymmdd: str, stock_id: str, max_retries: int = 4):
-    params = {"date": date_str_yyyymmdd, "selectType": "ALL", "response": "json"}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    }
-    session = requests.Session()
-    last_err = None
-    for attempt in range(1, max_retries + 1):
-        try:
-            # TWSE 比較嚴格，超時設定長一點
-            resp = session.get(TWSE_T86_URL, params=params, headers=headers, timeout=(10, 30))
-            resp.raise_for_status()
-            js = resp.json()
-            if js.get("stat") != "OK":
-                return None
-            df = pd.DataFrame(js["data"], columns=js["fields"])
-            stock_data = df[df["證券代號"].astype(str).str.strip() == str(stock_id)].copy()
-            if stock_data.empty:
-                return None
-            rename_map = {"外陸資買賣超股數(不含外資自營商)": "外資買賣超股數"}
-            stock_data.rename(columns=rename_map, inplace=True)
-            stock_data.insert(0, "日期", date_str_yyyymmdd)
-            stock_data = clean_numeric_columns(stock_data, ["外資買賣超股數", "投信買賣超股數"])
-            return stock_data
-        except Exception as e:
-            last_err = e
-            sleep_s = 2 ** attempt # 稍微加長重試間隔
-            print(f"⚠️ TWSE 失敗重試({attempt}/{max_retries}) | {date_str_yyyymmdd} | {repr(e)} | sleep {sleep_s}s")
-            time.sleep(sleep_s)
-    return None
+# ======================================================
+# B. Dataset Adapter 層：標準化資料轉換
+# ======================================================
+class TaiwanStockAdapter:
+    def __init__(self, client: FinMindClient):
+        self.client = client
 
-def update_chip_csv(stock_id: str, need_days: int = 5, scan_calendar_days: int = 12):
-    chip_file = os.path.join(DATA_PATH, f"{stock_id}_chip.csv")
-    existing_df = auto_clean_csv(chip_file)
-    existing_dates = set(existing_df["日期"].astype(str).tolist()) if existing_df is not None else set()
+    def get_trading_dates(self, lookback=45) -> list:
+        # 交易日曆
+        start_date = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        df = self.client.request_data("TaiwanStockTradingDate", start_date=start_date)
+        if df.empty or "date" not in df.columns:
+            return []
+        return df["date"].astype(str).tolist()
 
-    print(f"🚀 開始更新 {stock_id} 法人數據...")
-    got = 0
-    for i in range(0, scan_calendar_days):
-        d = (datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
-        if d in existing_dates:
-            got += 1
-            if got >= need_days: break
-            continue
-        data = get_stock_chip(d, stock_id)
-        if data is not None:
-            save_and_merge(data, f"{stock_id}_chip.csv")
-            print(f"📝 補抓 {d} 法人資料")
-            got += 1
-        if got >= need_days: break
-        time.sleep(1.5) # TWSE 建議間隔 1.5s 以上
+    def get_institutional_investors_net(self, stock_id: str, date_yyyy_mm_dd: str) -> tuple[float, float]:
+        """
+        回傳：外資淨買、投信淨買
+        """
+        df = self.client.request_data(
+            "TaiwanStockInstitutionalInvestorsBuySell",
+            data_id=stock_id,
+            start_date=date_yyyy_mm_dd,
+            end_date=date_yyyy_mm_dd
+        )
+        if df.empty:
+            return 0.0, 0.0
 
-# =============================
-# FinMind 分點尋根 (Sponsor 會員版)
-# =============================
-def finmind_get_dataset(dataset: str, data_id: str, start_date: str, end_date: str = None):
-    params = {"dataset": dataset, "data_id": data_id, "start_date": start_date}
-    if end_date: params["end_date"] = end_date
-    if FINMIND_TOKEN: params["token"] = FINMIND_TOKEN
-    try:
-        r = requests.get(FINMIND_V4_URL, params=params, timeout=25)
-        js = r.json()
-        if js.get("status") == 200:
-            return 200, "", pd.DataFrame(js.get("data", [])), js
-        return js.get("status"), js.get("msg", "error"), None, js
-    except Exception as e:
-        return -1, repr(e), None, None
+        # 欄位保護
+        for c in ["name", "buy", "sell"]:
+            if c not in df.columns:
+                return 0.0, 0.0
 
-def find_key_branches(stock_id: str, lookback_days: int = 10):
+        df["buy"] = pd.to_numeric(df["buy"], errors="coerce").fillna(0)
+        df["sell"] = pd.to_numeric(df["sell"], errors="coerce").fillna(0)
+
+        # 使用明確 key（避免模糊匹配混到其他類別）
+        f = df.loc[df["name"] == "Foreign_Investor"]
+        i = df.loc[df["name"] == "Investment_Trust"]
+
+        f_net = float(f["buy"].sum() - f["sell"].sum())
+        i_net = float(i["buy"].sum() - i["sell"].sum())
+        return f_net, i_net
+
+    def get_daily_report(self, stock_id: str, date_yyyy_mm_dd: str) -> pd.DataFrame:
+        return self.client.request_trading_daily_report(stock_id, date_yyyy_mm_dd)
+
+
+# ======================================================
+# C. CSV 工具：可選（你若要存法人資料）
+# ======================================================
+def save_boss_list(df: pd.DataFrame, stock_id: str):
     out_path = os.path.join(DATA_PATH, f"{stock_id}_boss_list.csv")
-    
-    # ✨ 點數優化：快取檢查
-    if os.path.exists(out_path):
-        mtime = datetime.fromtimestamp(os.path.getmtime(out_path))
-        if mtime.date() == datetime.now().date():
-            print(f"♻️ [{_now_str()}] 今日已抓取過 {stock_id} 分點，使用快取避免重複扣點。")
-            return pd.read_csv(out_path)
+    df.to_csv(out_path, index=False, encoding="utf-8-sig")
+    print(f"💾 輸出完成: {out_path}")
 
-    print(f"🔎 執行 {stock_id} 尋根 (分點抓取 - 扣除 FinMind 點數)...")
-    for i in range(1, lookback_days + 1):
-        d = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-        status, msg, df, _ = finmind_get_dataset("TaiwanStockTradingDailyReport", stock_id, d, d)
-        
-        if status in (402, 429):
-            print(f"⚠️ FinMind 點數用盡或限流 | status={status}")
-            return None
-        if status == 200 and df is not None and not df.empty:
-            # 欄位正規化
-            df.columns = [str(c).replace("'", "").replace('"', "").strip() for c in df.columns]
-            df.rename(columns={"securities_trader_id": "broker_id", "securities_trader": "broker_name"}, inplace=True)
-            df["buy"] = pd.to_numeric(df["buy"], errors="coerce").fillna(0)
-            df["sell"] = pd.to_numeric(df["sell"], errors="coerce").fillna(0)
-            df["net_buy"] = df["buy"] - df["sell"]
-            top_20 = df.groupby(["broker_id", "broker_name"])["net_buy"].sum().reset_index().sort_values("net_buy", ascending=False).head(20)
-            top_20.to_csv(out_path, index=False, encoding="utf-8-sig")
-            print(f"✅ [{_now_str()}] {d} 分點更新成功")
-            return top_20
-        time.sleep(1)
-    return None
+
+# ======================================================
+# D. 策略層 (Strategy)
+# ======================================================
+def run_strategy(stock_id: str, days: int = 5, throttle_sec: float = 0.8):
+    load_dotenv()
+    token = os.getenv("FINMIND_API_TOKEN", "").strip()
+    if not token:
+        print("❌ 找不到 FINMIND_API_TOKEN，請在 .env 設定 FINMIND_API_TOKEN=你的token")
+        return
+
+    client = FinMindClient(token=token, verify_ssl=False)
+    adapter = TaiwanStockAdapter(client)
+
+    # 1) 取得交易日（排除今天，避免資料尚未入庫）
+    all_dates = adapter.get_trading_dates(lookback=60)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    valid_dates = [d for d in all_dates if d < today_str]
+    target_dates = valid_dates[-days:]
+
+    if not target_dates:
+        print("❌ 無法取得有效交易日（交易日曆為空），終止。")
+        return
+
+    print(f"🔍 檢查 {stock_id} 近 {days} 交易日法人動向: {target_dates[0]} ~ {target_dates[-1]}")
+
+    # 2) 法人同買過濾
+    total_f, total_i = 0.0, 0.0
+    for d in target_dates:
+        f_net, i_net = adapter.get_institutional_investors_net(stock_id, d)
+        total_f += f_net
+        total_i += i_net
+        time.sleep(0.2)
+
+    print(f"📊 累計外資淨買: {total_f:,.0f} | 累計投信淨買: {total_i:,.0f}")
+
+    if not (total_f > 0 and total_i > 0):
+        print("⏭️ 籌碼未達同買標準，跳過分點抓取以節省點數。")
+        return
+
+    # 3) 同買 → 觸發 sponsor 分點
+    print("🎯 籌碼過濾合格！開始拉取分點資料 (Sponsor Call)...")
+
+    frames = []
+    for d in target_dates:
+        report = adapter.get_daily_report(stock_id, d)
+        if not report.empty:
+            frames.append(report)
+            print(f"✅ 已抓取 {d} 分點明細: {len(report)} rows")
+        else:
+            print(f"⚠️ {d} 分點明細為空（可能無資料/權限/入庫延遲）")
+        time.sleep(throttle_sec)
+
+    if not frames:
+        print("❌ 近五日分點資料皆為空，請檢查 sponsor 權限或日期是否有資料。")
+        return
+
+    combined = pd.concat(frames, ignore_index=True)
+
+    # 4) 標準化欄位（依常見欄位：securities_trader_id / securities_trader / buy / sell）
+    # 若 API 回傳欄位不同，這裡會自動降級為原樣輸出
+    col_map = {
+        "securities_trader_id": "broker_id",
+        "securities_trader": "broker_name"
+    }
+    for k, v in col_map.items():
+        if k in combined.columns and v not in combined.columns:
+            combined.rename(columns={k: v}, inplace=True)
+
+    if all(c in combined.columns for c in ["broker_id", "broker_name", "buy", "sell"]):
+        combined["buy"] = pd.to_numeric(combined["buy"], errors="coerce").fillna(0)
+        combined["sell"] = pd.to_numeric(combined["sell"], errors="coerce").fillna(0)
+
+        agg = (
+            combined
+            .groupby(["broker_id", "broker_name"], as_index=False)
+            .agg(buy=("buy", "sum"), sell=("sell", "sum"))
+        )
+        agg["net_buy"] = agg["buy"] - agg["sell"]
+
+        top_20 = agg.sort_values("net_buy", ascending=False).head(20).reset_index(drop=True)
+        save_boss_list(top_20, stock_id)
+    else:
+        # 欄位不齊就先原樣輸出，方便你觀察 schema
+        out_path = os.path.join(DATA_PATH, f"{stock_id}_daily_report_raw.csv")
+        combined.to_csv(out_path, index=False, encoding="utf-8-sig")
+        print(f"⚠️ 欄位不齊，已輸出原始資料供你檢查 schema: {out_path}")
+
 
 # =============================
-# 判斷邏輯
-# =============================
-def chip_filter_logic(stock_id: str, days: int = 5):
-    path = os.path.join(DATA_PATH, f"{stock_id}_chip.csv")
-    df = auto_clean_csv(path)
-    if df is None or df.empty: return False
-    df = clean_numeric_columns(df, ["外資買賣超股數", "投信買賣超股數"])
-    recent = df.tail(days)
-    f_sum, i_sum = recent["外資買賣超股數"].sum(), recent["投信買賣超股數"].sum()
-    print(f"📊 統計(近{days}日) - 外資: {f_sum:,.0f} | 投信: {i_sum:,.0f}")
-    if f_sum <= 0: print("   -> ❌ 外資累計未達標")
-    if i_sum <= 0: print("   -> ❌ 投信累計未達標")
-    return (f_sum > 0 and i_sum > 0)
-
-# =============================
-# 主程式 (省點數版)
+# Main
 # =============================
 if __name__ == "__main__":
-    target = "6239"
-
-    # 1. 抓法人 (免費資料)
-    update_chip_csv(target, need_days=5)
-
-    # 2. 判斷籌碼
-    is_chip_ok = chip_filter_logic(target)
-
-    # 3. 籌碼合格才進分點抓取 (省點數邏輯)
-    if is_chip_ok:
-        print("🎯 籌碼合格，執行分點尋根...")
-        find_key_branches(target)
-    else:
-        print("⏭️ 籌碼不合格，跳過分點抓取以節省點數。")
-
-    print(f"💡 最終結果：{'✅ 合格' if is_chip_ok else '❌ 不合格'}")
+    run_strategy("6239", days=5, throttle_sec=0.8)

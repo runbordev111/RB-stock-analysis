@@ -1,41 +1,187 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>RB 掃地僧籌碼戰情室</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #0c0c0c; color: #e0e0e0; font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; }
-        .card { background-color: #1a1a1a; border: 1px solid #333; margin-bottom: 20px; }
-        .status-pass { color: #00ff00; font-weight: bold; }
-        .status-fail { color: #ff4444; font-weight: bold; }
-        .update-time { font-size: 0.8em; color: #888; }
-        .table-dark { background-color: #1a1a1a; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RB 掃地僧籌碼戰情室</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body { background-color: #0c0c0c; color: #e0e0e0; font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; }
+    .card { background-color: #1a1a1a; border: 1px solid #333; margin-bottom: 20px; border-radius: 12px; }
+    .status-pass { color: #2ecc71; font-weight: bold; }
+    .status-fail { color: #e74c3c; font-weight: bold; }
+    .status-warn { color: #f1c40f; font-weight: bold; }
+    .update-time { font-size: 0.8em; color: #888; }
+
+    .table-dark { --bs-table-bg: #1a1a1a; font-size: 0.9em; }
+    .table-dark th { color: #f1c40f; }
+    .buy-row { color: #ff4444; } /* 買進用紅色(台股邏輯) */
+    .sell-row { color: #66b2ff; } /* 賣出用淡藍色 */
+    .badge-boss { background-color: #f1c40f; color: #000; }
+    code { color: #f1c40f; }
+
+    .hint { color: #aaa; font-size: 0.9em; }
+  </style>
 </head>
+
 <body>
 <div class="container py-5">
-    <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室</h1>
-    
-    <div class="row">
-        {% for stock in stocks %}
-        <div class="col-md-6">
-            <div class="card shadow">
-                <div class="card-body">
-                    <h3 class="card-title">{{ stock.id }} {{ stock.name }}</h3>
-                    <hr style="border-color: #444;">
-                    <p class="fs-5">即時狀態：
-                        <span class="{{ 'status-pass' if '✅' in stock.status else 'status-fail' }}">
-                            {{ stock.status }}
-                        </span>
-                    </p>
-                    <p class="fs-6">主力趨勢：<span class="text-warning">{{ stock.trend }}</span></p>
-                    <div class="update-time text-end">最後更新：{{ stock.last_update }}</div>
-                </div>
+  <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室</h1>
+
+  <div class="row justify-content-center">
+    {# 兼容：如果後端傳 stocks（多檔），就走 stocks；如果只傳 stock（單檔），也能顯示 #}
+    {% set items = stocks if stocks is defined else ([stock] if stock is defined else []) %}
+
+    {% if items and items|length > 0 %}
+      {% for stock in items %}
+      <div class="col-lg-8">
+        <div class="card shadow-lg">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h3 class="card-title mb-0">{{ stock.id }} {{ stock.name }}</h3>
+              <span class="badge badge-boss">5 日核心大戶監控中</span>
             </div>
+
+            <hr style="border-color: #444;">
+
+            <div class="row mb-4">
+              <div class="col-md-7">
+                <p class="fs-5 mb-1">
+                  今日動態：
+                  {% set s = stock.status|string %}
+                  {% set cls = 'status-fail' %}
+                  {% if '✅' in s %}
+                    {% set cls = 'status-pass' %}
+                  {% elif '⚠️' in s or '⚪' in s %}
+                    {% set cls = 'status-warn' %}
+                  {% endif %}
+                  <span class="{{ cls }}">{{ stock.status }}</span>
+                </p>
+
+                {# trend 是可選欄位，沒有就顯示提示 #}
+                <p class="fs-6">
+                  主力趨勢：
+                  {% if stock.trend is defined and stock.trend %}
+                    <span class="text-warning">{{ stock.trend }}</span>
+                  {% else %}
+                    <span class="hint">（未提供趨勢欄位）</span>
+                  {% endif %}
+                </p>
+              </div>
+
+              <div class="col-md-5 text-end">
+                <div class="update-time">最後更新：{{ stock.last_update }}</div>
+                {% if stock.probe_date is defined and stock.probe_date %}
+                  <div class="update-time">分點參考日：{{ stock.probe_date }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <h6 class="text-info mb-3">📌 近 5 日累積買超前 10 名券商 (尋根清單)</h6>
+            <div class="table-responsive">
+              <table class="table table-dark table-hover border-secondary">
+                <thead>
+                  <tr>
+                    <th>券商代碼</th>
+                    <th>券商名稱</th>
+                    <th class="text-end">累計買進(張)</th>
+                    <th class="text-end">累計賣出(張)</th>
+                    <th class="text-end">淨買超(張)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if stock.boss_list is defined and stock.boss_list %}
+                    {% for boss in stock.boss_list %}
+                      <tr>
+                        <td><code>{{ boss.broker_id }}</code></td>
+                        <td>{{ boss.broker_name }}</td>
+
+                        {# 兼容：boss.buy/boss.sell/boss.net_buy 可能是股數或張數
+                           - 若你 scraper 是股數（單位股），這裡 /1000 顯示張
+                           - 若你 scraper 已經是張數，建議後端帶 unit='lot' 讓前端不除
+                           這裡採「預設除以 1000」但支援 unit 控制
+                        #}
+                        {% set unit = stock.unit if stock.unit is defined else 'share' %}
+                        {% if unit == 'lot' %}
+                          <td class="text-end text-secondary">{{ boss.buy | int }}</td>
+                          <td class="text-end text-secondary">{{ boss.sell | int }}</td>
+                          <td class="text-end buy-row">{{ boss.net_buy | int }}</td>
+                        {% else %}
+                          <td class="text-end text-secondary">{{ (boss.buy / 1000) | int }}</td>
+                          <td class="text-end text-secondary">{{ (boss.sell / 1000) | int }}</td>
+                          <td class="text-end buy-row">{{ (boss.net_buy / 1000) | int }}</td>
+                        {% endif %}
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">
+                        尚無分點名單，請先執行尋根腳本（scraper 產生 {{ stock.id }}_boss_list.csv）
+                      </td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+
+            {# 今日動作明細（可選）：rb_tv_app.py 目前會提供 stock.today_action #}
+            <h6 class="text-info mt-4 mb-3">📍 今日/最近交易日核心大戶動作</h6>
+            <div class="table-responsive">
+              <table class="table table-dark table-hover border-secondary">
+                <thead>
+                  <tr>
+                    <th>券商代碼</th>
+                    <th>券商名稱</th>
+                    <th class="text-end">買進(張)</th>
+                    <th class="text-end">賣出(張)</th>
+                    <th class="text-end">淨買超(張)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if stock.today_action is defined and stock.today_action %}
+                    {% for r in stock.today_action %}
+                      {% set unit = stock.unit if stock.unit is defined else 'share' %}
+                      <tr>
+                        <td><code>{{ r.broker_id }}</code></td>
+                        <td>{{ r.broker_name }}</td>
+                        {% if unit == 'lot' %}
+                          <td class="text-end text-secondary">{{ r.buy | int }}</td>
+                          <td class="text-end text-secondary">{{ r.sell | int }}</td>
+                          <td class="text-end buy-row">{{ r.net | int }}</td>
+                        {% else %}
+                          <td class="text-end text-secondary">{{ (r.buy / 1000) | int }}</td>
+                          <td class="text-end text-secondary">{{ (r.sell / 1000) | int }}</td>
+                          <td class="text-end buy-row">{{ (r.net / 1000) | int }}</td>
+                        {% endif %}
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">今日/最近交易日未偵測到核心大戶動作</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
         </div>
-        {% endfor %}
-    </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="col-lg-8">
+        <div class="card shadow-lg">
+          <div class="card-body">
+            <h5 class="mb-2">⚠️ 沒有可顯示的股票資料</h5>
+            <div class="hint">後端請傳入 <code>stocks</code>（list）或 <code>stock</code>（dict）。</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
