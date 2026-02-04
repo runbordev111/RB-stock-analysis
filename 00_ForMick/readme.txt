@@ -10,16 +10,18 @@ python rb_tv_app.py
 (ngrok Authtoken)
 
 //---------------------------------------------
-右邊視窗	Python 程式 (rb_tv_app.py)	要venv！	因為程式需要用到您裝在裡面的 pandas、flask 等套件。
+(右邊視窗)	Python 程式 (rb_tv_app.py)	要venv！	因為程式需要用到您裝在裡面的 pandas、flask 等套件。
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 python -m venv venv
 .\venv\Scripts\activate
 pip install FinMind
+pip install tqdm pandas flask requests FinMind python-dotenv
 >>>python rb_tv_app.py
 
 //------------
-左邊視窗	ngrok 工具 (ngrok.exe) 它跟 Python 無關。
+(左邊視窗)	ngrok 工具 (ngrok.exe) 它跟 Python 無關。
 git pull origin master
+cd c:\ngrok
 >>.\ngrok config add-authtoken 2JU9XuyzEviEi5agopY8srTvXNp_5Em8z3aqiDk9txMpEpR4W
 >>.\ngrok http --domain=medicably-aeromechanical-yadiel.ngrok-free.dev 80
 
@@ -96,4 +98,9 @@ pip install flask requests shioaji python-dotenv python-telegram-bot pandas
 #"support": "1000",         // 這是您手動填入的支撐位 (目前暫代 200MA)
 #"action": "buy"            // 告訴您的程式這是一筆「買入」訊號
 
+
+//=================================================================================
+FinMind
+mick.sung01@gmail.com
+mickplus1
 
