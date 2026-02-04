@@ -121,6 +121,28 @@ def webhook():
     print(f"📡 處理訊號: {ticker} | 結果: {is_pass}")
     return jsonify({"status": "success"}), 200
 
+# ======================================================
+# 4. 讀取您的監控日誌 (假設存成 6239_monitor_log.csv)
+# ======================================================
+from flask import render_template # 請記得在最上面補上 render_template
+
+@app.route('/dashboard')
+def dashboard():
+    # 未來這裡會寫讀取 10 支 CSV 的邏輯
+    # 目前先手寫資料來測試網頁美觀度
+    stocks_data = [
+        {
+            "id": "6239",
+            "name": "力成",
+            "status": "✅ 籌碼合格！(摩根大通大買 500 張)",
+            "trend": "🔥 大戶連續 3 天進貨中",
+            "last_update": datetime.now().strftime("%Y-%m-%d %H:%M")
+        },
+        # 您可以繼續增加其他 9 支標的資料...
+    ]
+    
+    return render_template('dashboard.html', stocks=stocks_data)
+
 if __name__ == '__main__':
     # 啟動在本機 Port 80
     app.run(host='0.0.0.0', port=80)
