@@ -91,7 +91,7 @@ def dashboard():
     if os.path.exists(boss_path):
         boss_ids = pd.read_csv(boss_path)['broker_id'].astype(str).tolist()
         today_str = datetime.now().strftime("%Y-%m-%d")
-        daily_df = api.taiwan_stock_trading_daily_report(stock_id=stock_id, date=today_str)
+        daily_df = api.taiwan_stock_trading_daily_report(stock_id=stock_id, start_date=today_str)
         
         if not daily_df.empty:
             daily_df['broker_id'] = daily_df['broker_id'].astype(str)
