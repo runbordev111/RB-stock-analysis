@@ -113,3 +113,15 @@ mickplus1
 外資關鍵庫存券商：觀察「摩根大通」、「美林」或「高盛」這類分點。如果你的法人數據顯示外資在買，但分點數據顯示是這幾家主要外資券商在「連續慣性買進」，則趨勢較穩。
 
 隔日沖分點：如果在某天大買後，隔 1-2 天就全數出脫（如凱基-台北、富邦-建國），則要小心籌碼不穩。
+
+//======================================
+//TradingView
+//FinMind
+//VS Code
+//SQLite https://sqlitebrowser.org/dl/
+//TradingView → Python → SQLite → AI → 永豐 API → Dashboard
+//
+第一個資料庫 tw_stock.db
+第一張表 chip_inst
+Python 寫入程式（CSV → SQLite）
+SQL 查詢模板（外資連買、大戶連買等）

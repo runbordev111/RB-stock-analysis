@@ -3,25 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RB 掃地僧籌碼戰情室</title>
+  <title>RB 掃地僧籌碼戰情室 - 核心大戶追蹤</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+
+    /* 表格顏色提示 */
+    .broker-chip {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
     body { background-color: #0c0c0c; color: #e0e0e0; font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; }
     .card { background-color: #1a1a1a; border: 1px solid #333; margin-bottom: 20px; border-radius: 12px; }
     .status-pass { color: #2ecc71; font-weight: bold; }
     .status-fail { color: #e74c3c; font-weight: bold; }
     .status-warn { color: #f1c40f; font-weight: bold; }
-    .update-time { font-size: 0.8em; color: #888; }
+    .update-time { font-size: 0.85em; color: #888; }
 
-    .table-dark { --bs-table-bg: #1a1a1a; font-size: 0.9em; }
+    .table-dark { --bs-table-bg: #1a1a1a; font-size: 0.85em; }
     .table-dark th { color: #f1c40f; }
-    .buy-row { color: #ff4444; } /* 買進用紅色(台股邏輯) */
-    .sell-row { color: #66b2ff; } /* 賣出用淡藍色 */
-    .badge-boss { background-color: #f1c40f; color: #000; }
-    code { color: #f1c40f; }
+    .buy-row { color: #ff4444; font-weight: bold; }
+    .sell-row { color: #66b2ff; font-weight: bold; }
+    .badge-boss { background-color: #f1c40f; color: #000; font-weight: bold; }
 
-    .hint { color: #aaa; font-size: 0.9em; }
+    .chart-container { position: relative; height: 350px; width: 100%; margin-bottom: 20px; }
+    .metric-card { text-align: center; padding: 15px; border-radius: 8px; background: #252525; }
+    .metric-value { font-size: 1.8rem; font-weight: bold; color: #f1c40f; }
+    .metric-label { font-size: 0.8rem; color: #aaa; }
+
+    /* ======= 新增：標題強制白色，提升對比 ======= */
+    .card-title,
+    .card-title * {
+      color: #ffffff !important;
+    }
+    .card-body { color: #e0e0e0; }
+    code { color: #f1c40f; }
   </style>
 </head>
 
@@ -30,136 +52,126 @@
   <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室</h1>
 
   <div class="row justify-content-center">
-    {# 兼容：如果後端傳 stocks（多檔），就走 stocks；如果只傳 stock（單檔），也能顯示 #}
+    {# 兼容：stocks(list) 或 stock(dict) #}
     {% set items = stocks if stocks is defined else ([stock] if stock is defined else []) %}
 
     {% if items and items|length > 0 %}
       {% for stock in items %}
-      <div class="col-lg-8">
+      <div class="col-lg-10">
         <div class="card shadow-lg">
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h3 class="card-title mb-0">{{ stock.id }} {{ stock.name }}</h3>
-              <span class="badge badge-boss">5 日核心大戶監控中</span>
-            </div>
 
-            <hr style="border-color: #444;">
-
-            <div class="row mb-4">
-              <div class="col-md-7">
-                <p class="fs-5 mb-1">
-                  今日動態：
-                  {% set s = stock.status|string %}
-                  {% set cls = 'status-fail' %}
-                  {% if '✅' in s %}
-                    {% set cls = 'status-pass' %}
-                  {% elif '⚠️' in s or '⚪' in s %}
-                    {% set cls = 'status-warn' %}
-                  {% endif %}
-                  <span class="{{ cls }}">{{ stock.status }}</span>
-                </p>
-
-                {# trend 是可選欄位，沒有就顯示提示 #}
-                <p class="fs-6">
-                  主力趨勢：
-                  {% if stock.trend is defined and stock.trend %}
-                    <span class="text-warning">{{ stock.trend }}</span>
-                  {% else %}
-                    <span class="hint">（未提供趨勢欄位）</span>
-                  {% endif %}
-                </p>
-              </div>
-
-              <div class="col-md-5 text-end">
-                <div class="update-time">最後更新：{{ stock.last_update }}</div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <!-- 新增：text-white 保底 -->
+                <h3 class="card-title mb-1 text-white">{{ stock.id }} {{ stock.name }}</h3>
+                <span class="update-time">最後更新：{{ stock.last_update }}</span>
                 {% if stock.probe_date is defined and stock.probe_date %}
                   <div class="update-time">分點參考日：{{ stock.probe_date }}</div>
                 {% endif %}
               </div>
+
+              <div class="text-end">
+                <span class="badge badge-boss mb-1">Top 6 核心大戶監控 (10日)</span>
+                {% set s = stock.status|string %}
+                {% set cls = 'status-fail' %}
+                {% if '✅' in s %}
+                  {% set cls = 'status-pass' %}
+                {% elif '⚠️' in s or '⚪' in s %}
+                  {% set cls = 'status-warn' %}
+                {% endif %}
+                <div class="{{ cls }}">{{ stock.status }}</div>
+              </div>
             </div>
 
-            <h6 class="text-info mb-3">📌 近 5 日累積買超前 10 名券商 (尋根清單)</h6>
+            <div class="row mb-4">
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">10日大戶集中度</div>
+                  <div class="metric-value">{{ stock.concentration_10d }}%</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">5日大戶集中度</div>
+                  <div class="metric-value">{{ stock.concentration_5d }}%</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">大戶吃貨狀態</div>
+                  <div class="metric-value" style="font-size: 1.15rem; line-height: 2.5rem;">
+                    {{ stock.trend }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h6 class="text-info mb-3">📈 Top 6 核心大戶：近十日買賣超累計軌跡 (張)</h6>
+            <div class="chart-container">
+              <canvas id="whaleChart-{{ stock.id }}"></canvas>
+            </div>
+
+            <h6 class="text-info mt-5 mb-3">📍 Top 6 大戶各別動態清單</h6>
             <div class="table-responsive">
+
+              {% set color_map = {} %}
+              {% if stock.whale_data is defined and stock.whale_data %}
+                {% for w in stock.whale_data %}
+                  {% set _ = color_map.update({ (w.name|string): (w.color|string) }) %}
+                {% endfor %}
+              {% endif %}
+
               <table class="table table-dark table-hover border-secondary">
                 <thead>
                   <tr>
-                    <th>券商代碼</th>
-                    <th>券商名稱</th>
-                    <th class="text-end">累計買進(張)</th>
-                    <th class="text-end">累計賣出(張)</th>
-                    <th class="text-end">淨買超(張)</th>
+                    <th>券商名稱</th><th>類型</th>
+                    <th class="text-end">10日累計(張)</th>
+                    <th class="text-end">5日累計(張)</th>
+                    <th class="text-end">1日動作(張)</th>
+                    <th class="text-end">成本估算</th>
+                    <th class="text-end">縣市</th>
+                    
                   </tr>
                 </thead>
                 <tbody>
-                  {% if stock.boss_list is defined and stock.boss_list %}
-                    {% for boss in stock.boss_list %}
+                  {% if stock.top6_details is defined and stock.top6_details %}
+                    {% for boss in stock.top6_details %}
                       <tr>
-                        <td><code>{{ boss.broker_id }}</code></td>
-                        <td>{{ boss.broker_name }}</td>
-
-                        {# 兼容：boss.buy/boss.sell/boss.net_buy 可能是股數或張數
-                           - 若你 scraper 是股數（單位股），這裡 /1000 顯示張
-                           - 若你 scraper 已經是張數，建議後端帶 unit='lot' 讓前端不除
-                           這裡採「預設除以 1000」但支援 unit 控制
-                        #}
-                        {% set unit = stock.unit if stock.unit is defined else 'share' %}
-                        {% if unit == 'lot' %}
-                          <td class="text-end text-secondary">{{ boss.buy | int }}</td>
-                          <td class="text-end text-secondary">{{ boss.sell | int }}</td>
-                          <td class="text-end buy-row">{{ boss.net_buy | int }}</td>
+                        {% set c = color_map.get(boss.broker_name|string, '#888') %}
+                      <td>
+                        {% if boss.seat_type is defined and boss.seat_type == 'inst_foreign' %}
+                          <span class="badge" style="background:#7f8c8d;color:#fff;">外資/法人席位</span>
                         {% else %}
-                          <td class="text-end text-secondary">{{ (boss.buy / 1000) | int }}</td>
-                          <td class="text-end text-secondary">{{ (boss.sell / 1000) | int }}</td>
-                          <td class="text-end buy-row">{{ (boss.net_buy / 1000) | int }}</td>
+                          <span class="badge" style="background:#2c3e50;color:#fff;">本土分點</span>
                         {% endif %}
-                      </tr>
-                    {% endfor %}
-                  {% else %}
-                    <tr>
-                      <td colspan="5" class="text-center text-muted">
-                        尚無分點名單，請先執行尋根腳本（scraper 產生 {{ stock.id }}_boss_list.csv）
+
+                        {# 顏色圓點，表示與圖表一致的大戶顏色 #}
+                        <span class="broker-chip" style="
+                          display:inline-block;
+                          width:11px;
+                          height:11px;
+                          border-radius:50%;
+                          background: {{ boss.color }};
+                          margin-left:6px;
+                          margin-right:6px;
+                        "></span>
+
+                        <code>{{ boss.broker_id }}</code>
+                        <span style="color: {{ boss.color }}; font-weight:700;">
+                          {{ boss.broker_name }}
+                        </span>
                       </td>
-                    </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-
-            {# 今日動作明細（可選）：rb_tv_app.py 目前會提供 stock.today_action #}
-            <h6 class="text-info mt-4 mb-3">📍 今日/最近交易日核心大戶動作</h6>
-            <div class="table-responsive">
-              <table class="table table-dark table-hover border-secondary">
-                <thead>
-                  <tr>
-                    <th>券商代碼</th>
-                    <th>券商名稱</th>
-                    <th class="text-end">買進(張)</th>
-                    <th class="text-end">賣出(張)</th>
-                    <th class="text-end">淨買超(張)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% if stock.today_action is defined and stock.today_action %}
-                    {% for r in stock.today_action %}
-                      {% set unit = stock.unit if stock.unit is defined else 'share' %}
-                      <tr>
-                        <td><code>{{ r.broker_id }}</code></td>
-                        <td>{{ r.broker_name }}</td>
-                        {% if unit == 'lot' %}
-                          <td class="text-end text-secondary">{{ r.buy | int }}</td>
-                          <td class="text-end text-secondary">{{ r.sell | int }}</td>
-                          <td class="text-end buy-row">{{ r.net | int }}</td>
-                        {% else %}
-                          <td class="text-end text-secondary">{{ (r.buy / 1000) | int }}</td>
-                          <td class="text-end text-secondary">{{ (r.sell / 1000) | int }}</td>
-                          <td class="text-end buy-row">{{ (r.net / 1000) | int }}</td>
-                        {% endif %}
+                        <td class="text-end {{ 'buy-row' if boss.net_10d > 0 else 'sell-row' }}">{{ boss.net_10d | round(0) | int }}</td>
+                        <td class="text-end {{ 'buy-row' if boss.net_5d > 0 else 'sell-row' }}">{{ boss.net_5d | round(0) | int }}</td>
+                        <td class="text-end {{ 'buy-row' if boss.net_1d > 0 else 'sell-row' }}">{{ boss.net_1d | round(0) | int }}</td>
+                        <td class="text-end text-warning">NT$ {{ boss.avg_price }}</td>
+                        <td class="text-end text-secondary">{{ boss.city if boss.city is defined and boss.city else '-' }}</td>
+                     
                       </tr>
                     {% endfor %}
                   {% else %}
-                    <tr>
-                      <td colspan="5" class="text-center text-muted">今日/最近交易日未偵測到核心大戶動作</td>
-                    </tr>
+                    <tr><td colspan="5" class="text-center text-muted">暫無詳細大戶數據（請先執行 10 日軌跡分析腳本）</td></tr>
                   {% endif %}
                 </tbody>
               </table>
@@ -168,20 +180,85 @@
           </div>
         </div>
       </div>
+
+      {# --------------------- Chart.js Render --------------------- #}
+      <script>
+        (function () {
+          const canvas = document.getElementById('whaleChart-{{ stock.id }}');
+          if (!canvas) return;
+
+          const labels = {{ (stock.history_labels if stock.history_labels is defined else []) | tojson | safe }};
+          const whaleData = {{ (stock.whale_data if stock.whale_data is defined else []) | tojson | safe }};
+          const totalValues = {{ (stock.total_whale_values if stock.total_whale_values is defined else []) | tojson | safe }};
+
+          const datasets = [];
+
+          // Top6 線（左軸 y）
+          for (const w of whaleData) {
+            datasets.push({
+              label: w.name || 'N/A',
+              data: w.values || [],
+              borderColor: w.color || '#999',
+              backgroundColor: w.color || '#999',
+              borderWidth: 2,
+              tension: 0,          // ✅ 折線
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              yAxisID: 'y'
+            });
+          }
+
+          // 總計線（右軸 y2）
+          datasets.push({
+            label: '總計',
+            data: totalValues || [],
+            yAxisID: 'y2',
+            borderColor: '#f1c40f',
+            backgroundColor: '#f1c40f',
+            borderWidth: 4,
+            borderDash: [5, 5],
+            tension: 0,           // ✅ 折線
+            pointRadius: 0
+          });
+
+          const ctx = canvas.getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              scales: {
+                y: {
+                  position: 'left',
+                  grid: { color: '#333' },
+                  ticks: { color: '#aaa' }
+                },
+                y2: {
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  ticks: { color: '#aaa' }
+                },
+                x: { grid: { color: '#333' }, ticks: { color: '#aaa' } }
+              },
+              plugins: {
+                legend: { position: 'bottom', labels: { color: '#eee', boxWidth: 12 } },
+                tooltip: { mode: 'index', intersect: false }
+              }
+            }
+          });
+        })();
+      </script>
       {% endfor %}
     {% else %}
       <div class="col-lg-8">
         <div class="card shadow-lg">
-          <div class="card-body">
-            <h5 class="mb-2">⚠️ 沒有可顯示的股票資料</h5>
-            <div class="hint">後端請傳入 <code>stocks</code>（list）或 <code>stock</code>（dict）。</div>
-          </div>
+          <div class="card-body text-center text-muted">⏳ 等待數據載入中...</div>
         </div>
       </div>
     {% endif %}
   </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

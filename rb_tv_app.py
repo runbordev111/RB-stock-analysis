@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import requests
 import pandas as pd
 import urllib3
@@ -26,7 +27,7 @@ TWSE_T86_URL = "https://www.twse.com.tw/rwd/zh/fund/T86"
 FINMIND_V4_DATA_URL = "https://api.finmindtrade.com/api/v4/data"
 FINMIND_TDR_URL = "https://api.finmindtrade.com/api/v4/taiwan_stock_trading_daily_report"
 
-# 若你環境 SSL 沒問題，建議改成 True
+# 建議：預設先 True；若你公司網路/憑證有問題可改 False
 VERIFY_SSL = True
 
 app = Flask(__name__)
@@ -40,7 +41,7 @@ def now_str():
 # A. FinMind Client（不用 FinMind 套件，避免 import 問題）
 # ======================================================
 class FinMindClient:
-    def __init__(self, token: str, verify_ssl: bool = False):
+    def __init__(self, token: str, verify_ssl: bool = True):
         self.token = (token or "").strip()
         self.verify_ssl = verify_ssl
         self.session = self._build_session()
@@ -82,18 +83,35 @@ class FinMindClient:
             if r.status_code == 200 and api_status == 200:
                 return pd.DataFrame(js.get("data", []))
             return pd.DataFrame()
+        except requests.exceptions.SSLError:
+            # SSL 驗證失敗時自動降級（避免整站掛）
+            try:
+                r = self.session.get(FINMIND_V4_DATA_URL, params=params, timeout=30, verify=False)
+                js = r.json() if r.content else {}
+                if r.status_code == 200 and js.get("status") == 200:
+                    return pd.DataFrame(js.get("data", []))
+            except Exception:
+                pass
+            return pd.DataFrame()
         except Exception:
             return pd.DataFrame()
 
     def request_trading_daily_report(self, stock_id: str, date_yyyy_mm_dd: str) -> pd.DataFrame:
-        # sponsor 分點：data_id + date
         params = {"data_id": stock_id, "date": date_yyyy_mm_dd}
         try:
             r = self.session.get(FINMIND_TDR_URL, params=params, timeout=30, verify=self.verify_ssl)
             js = r.json() if r.content else {}
-            api_status = js.get("status")
-            if r.status_code == 200 and api_status == 200:
+            if r.status_code == 200 and js.get("status") == 200:
                 return pd.DataFrame(js.get("data", []))
+            return pd.DataFrame()
+        except requests.exceptions.SSLError:
+            try:
+                r = self.session.get(FINMIND_TDR_URL, params=params, timeout=30, verify=False)
+                js = r.json() if r.content else {}
+                if r.status_code == 200 and js.get("status") == 200:
+                    return pd.DataFrame(js.get("data", []))
+            except Exception:
+                pass
             return pd.DataFrame()
         except Exception:
             return pd.DataFrame()
@@ -117,9 +135,6 @@ def clean_numeric_columns(df: pd.DataFrame, columns):
 
 
 def append_unique_row_csv(file_path: str, df_row: pd.DataFrame, key_col: str = "日期"):
-    """
-    將單筆資料 append 到 CSV（若 key_col 已存在則不追加）
-    """
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
     if not os.path.exists(file_path):
@@ -134,7 +149,6 @@ def append_unique_row_csv(file_path: str, df_row: pd.DataFrame, key_col: str = "
             return
         df_row.to_csv(file_path, mode="a", header=False, index=False, encoding="utf-8-sig")
     except Exception:
-        # 若檔案壞掉，保守策略：覆蓋重寫
         df_row.to_csv(file_path, index=False, encoding="utf-8-sig")
 
 
@@ -151,9 +165,6 @@ def send_telegram(msg: str):
 
 
 def get_recent_trading_dates(days: int = 10, lookback: int = 60):
-    """
-    取最近交易日（排除今天，避免尚未入庫）
-    """
     start_date = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
     df = fm.request_data("TaiwanStockTradingDate", start_date=start_date)
     if df.empty or "date" not in df.columns:
@@ -167,15 +178,10 @@ def get_recent_trading_dates(days: int = 10, lookback: int = 60):
 # C. 核心邏輯：籌碼檢查（TWSE T86 → 近 5 日同買）
 # ======================================================
 def check_stock_monk_rule(stock_id: str):
-    """
-    1) 嘗試抓今日 TWSE T86
-    2) 寫入本地 ./data/{stock_id}_chip.csv（日期重複不寫）
-    3) 讀取近 5 筆，判斷外資+投信累計是否同買
-    """
     date_str = datetime.now().strftime("%Y%m%d")
     chip_file = os.path.join(DATA_PATH, f"{stock_id}_chip.csv")
 
-    # ---- 1) 抓今日 T86（若當日無資料：可能假日/尚未更新）
+    # 1) 抓今日 T86
     try:
         resp = requests.get(
             TWSE_T86_URL,
@@ -191,12 +197,10 @@ def check_stock_monk_rule(stock_id: str):
                     row.insert(0, "日期", date_str)
                     row = clean_numeric_columns(row, ["外資買賣超股數", "投信買賣超股數"])
                     append_unique_row_csv(chip_file, row, key_col="日期")
-        # stat != OK 就略過寫入
     except Exception as e:
-        # 不中斷，繼續用歷史檔判斷
         return False, f"⚠️ 籌碼查詢失敗(TWSE): {repr(e)}"
 
-    # ---- 2) 讀本地近 5 日判斷
+    # 2) 讀本地近 5 日判斷
     if not os.path.exists(chip_file):
         return False, "⚠️ 尚無籌碼歷史檔，請先累積資料。"
 
@@ -250,84 +254,94 @@ def webhook():
 def dashboard():
     stock_id = request.args.get("stock_id", "6239").strip()
 
+    json_path = os.path.join(DATA_PATH, f"{stock_id}_whale_track.json")
     boss_path = os.path.join(DATA_PATH, f"{stock_id}_boss_list.csv")
 
     stock_info = {
         "id": stock_id,
-        "name": "N/A",
-        "status": "⚪ 無資料",
+        "name": "力成",
+        "status": "⚪ 初始化中",
         "last_update": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "trend": "觀察中",
+        "concentration_10d": 0,
+        "concentration_5d": 0,
+        "history_labels": [],
+        "whale_data": [],
+        "total_whale_values": [],
+        "top6_details": [],
         "boss_list": [],
         "today_action": [],
+        "unit": "share",   # 預設以股為單位（前端 /1000 顯示張）
     }
 
-    if not os.path.exists(boss_path):
-        stock_info["status"] = "⚠️ 請先執行 scraper 產生 5 日大戶名單"
-        return render_template("dashboard.html", stock=stock_info)
+    # 0) 讀 boss_list.csv（可選）
+    if os.path.exists(boss_path):
+        try:
+            boss_df = pd.read_csv(boss_path)
+            if not boss_df.empty:
+                stock_info["boss_list"] = boss_df.head(10).to_dict("records")
+        except Exception:
+            pass
 
-    # 1) 讀取 5 日累積大戶清單（top N）
-    try:
-        boss_df = pd.read_csv(boss_path)
-        if boss_df.empty:
-            stock_info["status"] = "⚠️ 大戶清單為空"
-            return render_template("dashboard.html", stock=stock_info)
-    except Exception as e:
-        stock_info["status"] = f"⚠️ 讀取大戶清單失敗: {repr(e)}"
-        return render_template("dashboard.html", stock=stock_info)
+    # 1) 讀取 10 日軌跡 JSON
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                track_data = json.load(f)
 
-    # 兼容欄位（你 scraper 輸出是 broker_id/broker_name/net_buy）
-    if "broker_id" not in boss_df.columns:
-        stock_info["status"] = "⚠️ 大戶清單缺 broker_id 欄位"
-        return render_template("dashboard.html", stock=stock_info)
+            stock_info.update({
+                "history_labels": track_data.get("history_labels", []),
+                "whale_data": track_data.get("whale_data", []),
+                "total_whale_values": track_data.get("total_whale_values", []),
+                "concentration_10d": track_data.get("concentration_10d", 0),
+                "concentration_5d": track_data.get("concentration_5d", 0),
+                "top6_details": track_data.get("top6_details", []),
+                "status": "✅ 大戶軌跡數據已載入"
+            })
 
-    boss_ids = boss_df["broker_id"].astype(str).tolist()
-    stock_info["boss_list"] = boss_df.head(10).to_dict("records")
+            c10 = float(stock_info.get("concentration_10d", 0) or 0)
+            if c10 > 15:
+                stock_info["trend"] = "🔥 籌碼高度集中，主力強勢吃貨"
+            elif c10 > 5:
+                stock_info["trend"] = "📈 籌碼溫和緩集"
+            else:
+                stock_info["trend"] = "⚖️ 籌碼分布中性"
 
-    # 2) 抓「最近可用交易日」的分點資料（避免今天未入庫）
-    recent_dates = get_recent_trading_dates(days=3, lookback=60)
-    if not recent_dates:
-        stock_info["status"] = "⚠️ 無法取得交易日曆"
-        return render_template("dashboard.html", stock=stock_info)
+        except Exception as e:
+            print(f"⚠️ JSON 讀取失敗: {repr(e)}")
 
-    # 優先用最近一天
-    probe_date = recent_dates[-1]
+    # 2) 抓取最近一日動作（用 top6_details 過濾）
+    recent_dates = get_recent_trading_dates(days=3)
+    if recent_dates:
+        probe_date = recent_dates[-1]
+        daily_df = fm.request_trading_daily_report(stock_id=stock_id, date_yyyy_mm_dd=probe_date)
 
-    daily_df = fm.request_trading_daily_report(stock_id=stock_id, date_yyyy_mm_dd=probe_date)
+        if not daily_df.empty:
+            if "securities_trader_id" in daily_df.columns and "broker_id" not in daily_df.columns:
+                daily_df.rename(columns={"securities_trader_id": "broker_id"}, inplace=True)
+            if "securities_trader" in daily_df.columns and "broker_name" not in daily_df.columns:
+                daily_df.rename(columns={"securities_trader": "broker_name"}, inplace=True)
 
-    if daily_df.empty:
-        stock_info["status"] = f"⚪ {probe_date} 分點資料為空（可能權限不足/尚未入庫）"
-        return render_template("dashboard.html", stock=stock_info)
+            need_cols = {"broker_id", "broker_name", "buy", "sell"}
+            if need_cols.issubset(set(daily_df.columns)):
+                daily_df["buy"] = pd.to_numeric(daily_df["buy"], errors="coerce").fillna(0)
+                daily_df["sell"] = pd.to_numeric(daily_df["sell"], errors="coerce").fillna(0)
+                daily_df["net"] = daily_df["buy"] - daily_df["sell"]
 
-    # 欄位標準化
-    if "securities_trader_id" in daily_df.columns and "broker_id" not in daily_df.columns:
-        daily_df.rename(columns={"securities_trader_id": "broker_id"}, inplace=True)
-    if "securities_trader" in daily_df.columns and "broker_name" not in daily_df.columns:
-        daily_df.rename(columns={"securities_trader": "broker_name"}, inplace=True)
-
-    need_cols = {"broker_id", "broker_name", "buy", "sell"}
-    if not need_cols.issubset(set(daily_df.columns)):
-        stock_info["status"] = f"⚠️ {probe_date} 分點欄位不齊，已抓到但無法計算"
-        stock_info["today_action"] = daily_df.head(50).to_dict("records")
-        return render_template("dashboard.html", stock=stock_info)
-
-    daily_df["broker_id"] = daily_df["broker_id"].astype(str)
-    daily_df["buy"] = pd.to_numeric(daily_df["buy"], errors="coerce").fillna(0)
-    daily_df["sell"] = pd.to_numeric(daily_df["sell"], errors="coerce").fillna(0)
-    daily_df["net"] = daily_df["buy"] - daily_df["sell"]
-
-    today_boss = daily_df[daily_df["broker_id"].isin(boss_ids)].copy()
-    if today_boss.empty:
-        stock_info["status"] = f"⚪ {probe_date} 大戶名單無顯著動作"
-        return render_template("dashboard.html", stock=stock_info)
-
-    top_one = today_boss.sort_values(by="net", ascending=False).iloc[0]
-    stock_info["status"] = f"✅ {probe_date} 關鍵分點『{top_one['broker_name']}』淨買 {int(top_one['net'])} 張！"
-    stock_info["today_action"] = today_boss.sort_values(by="net", ascending=False).head(50).to_dict("records")
+                boss_ids = [str(b.get("broker_id")) for b in stock_info.get("top6_details", []) if b.get("broker_id") is not None]
+                if boss_ids:
+                    today_boss = daily_df[daily_df["broker_id"].astype(str).isin(boss_ids)].copy()
+                    if not today_boss.empty:
+                        top_one = today_boss.sort_values(by="net", ascending=False).iloc[0]
+                        stock_info["status"] = f"✅ {probe_date} 關鍵分點『{top_one['broker_name']}』大買 {int(top_one['net']/1000)} 張！"
+                        stock_info["today_action"] = today_boss.sort_values(by="net", ascending=False).head(50).to_dict("records")
+            else:
+                stock_info["status"] = f"⚠️ {probe_date} 分點欄位不齊，無法計算"
 
     return render_template("dashboard.html", stock=stock_info)
 
 
 if __name__ == "__main__":
-    # Windows 本機測試建議用 5000；上雲再調 80/443
+    # Windows 本機預設 5000（避免 80 權限/佔用/ERR_NGROK_8012）
     port = int(os.getenv("PORT", "80"))
     app.run(host="0.0.0.0", port=port)
