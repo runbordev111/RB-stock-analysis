@@ -8,7 +8,7 @@ echo %date% %time% - Run [Backup Upload] (upl_rb) >> Log.txt
 
 :: 全部上傳（含 Log.txt）
 git add .
-git commit -m "V1.0.0 - %date% %time% Update (including logs)"
+git commit -m "V1.0.6 - %date% %time% Update (including logs)"
 git push origin master
 
 echo ✅ Upload and log update complete!
