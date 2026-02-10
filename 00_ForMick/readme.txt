@@ -6,11 +6,10 @@ start cmd /k "cd C:\ngrok\ && ngrok http --domain=medicably-aeromechanical-yadie
 start cmd /k "cd C:\ngrok\RB_DataMining && .\venv\Scripts\activate && python rb_tv_app.py"
 
 .\ngrok http --domain=medicably-aeromechanical-yadiel.ngrok-free.dev 80
-python rb_tv_app.py
-(ngrok Authtoken)
+python rb_tv_app.py  (ngrok Authtoken)
 
 //---------------------------------------------
-(右邊視窗)	Python 程式 (rb_tv_app.py)	要venv！	因為程式需要用到您裝在裡面的 pandas、flask 等套件。
+(右邊2視窗)	Python 程式 (rb_tv_app.py)	要venv！	因為程式需要用到您裝在裡面的 pandas、flask 等套件。
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 python -m venv venv
 .\venv\Scripts\activate
@@ -140,188 +139,24 @@ RB_DataMining/
   scraper_chip.py                # 只留 main + run_strategy（流程）
   core/
     __init__.py
-core/finmind_client.py：  API I/O、retry、log、回傳 DataFrame
-core/adapter_tw.py：      把 API dataset 抽象成 domain method（trading dates、name、daily report）
-core/broker_master.py：   靜態資料載入與映射
-core/price_data.py：      價格資料抽取 + 欄位 normalize（OHLCV schema 固化）
-core/indicators_tv.py：   TV radar 指標（只吃 OHLCV DataFrame，不碰 API）
-core/regime.py：          中期 regime（只吃 price_df，不碰 API）
-core/signals_whale.py：   分點資料清洗、集中度、廣度、top15、master_trend（只吃 trading df，不碰 API）
-core/pipeline.py：        組裝流程（整合 price/regime/tv/whale signals）
-core/config.py :          集中所有門檻與權重
-core/types.py :           把 signals/pack 的資料契約固定
-core/aggregate.py :       把 aggregation 抽成
+core/finmind_client.py：    API I/O、retry、log、回傳 DataFrame
+core/adapter_tw.py：        把 API dataset 抽象成 domain method（trading dates、name、daily report）
+core/broker_master.py：     靜態資料載入與映射
+core/price_data.py：        價格資料抽取 + 欄位 normalize（OHLCV schema 固化）
+core/indicators_tv.py：     TV radar 指標（只吃 OHLCV DataFrame，不碰 API）
+core/regime.py：            中期 regime（只吃 price_df，不碰 API）
+core/signals_whale.py：     分點資料清洗、集中度、廣度、top15、master_trend（只吃 trading df，不碰 API）
+core/pipeline.py：          組裝流程（整合 price/regime/tv/whale signals）
+core/config.py :            集中所有門檻與權重
+core/types.py :             把 signals/pack 的資料契約固定
+core/aggregate.py :         把 aggregation 抽成
+core/signals_validation.py  負責：輸入 price_df(ohlcv_20d) + signals(score等) → 輸出 validation dict（MVP 3 欄）
+core/risk_rules.py          負責：輸入 price_df(ohlcv_20d) → 輸出 risk dict（MVP 3 欄）
 
+你現在先做 MVP：每個檔案各一個 function，compute_validation_signals() / compute_risk_signals()。
 
 scraper_chip.py：entrypoint / orchestration（args、run_strategy、輸出 JSON/CSV）
 
 
 //=================================================================================
-A. 大戶短期力道（whale_score）>>分數如何訂??>>>>大戶買越兇、散戶賣越快、集中度越高，分數就越高。
-1-1、Strength（40%）：集中度（5日、20日）標準化後的組合
-1-2、Direction（25%）：NetBuy（5日、20日）用 tanh() 壓縮後的方向性
-1-3、Breadth（25%）：廣度比（買超家數占比）偏離 0.5 的程度
-1-4、Divergence/Sync（10%）：外資 vs 本土是否同向且力道是否接近（協同加分，背離扣分）
-最後合成總分（0~100）：score = 40%*strength + 25%*direction + 25%*breadth + 10%*div
-把短期籌碼拆成：集中（誰在買）+方向（買超/賣超）+擴散（多少人買）+外本協同，綜合成 0~100。
-你畫面上 Score=66.0 通常代表：集中度不低 + 方向偏多 + 廣度偏多或協同有加分，但不是「極端強」。
-[多/偏多/吸籌/震盪/派發/偏空/空] [外本協同、買盤擴散、淨買主導....]
-
-
-1-1、5/20日集中度公式（%）>> TopN（預設TOP15）的買方 buy 量 / 全市場 buy 量 × 100% 
-這段時間「買超前 15 名的總量 - 賣超前 15 名的總量」佔「總成交量」的百分比。
-[]
-5% 以上：代表主力有在收貨，具備觀察價值。
-10% 以上：代表主力積極吃貨，行情發動機率高。
-高集中度：資金/籌碼更集中在少數主力（更像「主導型」盤） / 低集中度：買盤分散（更像「群眾型」盤）
-
-TopN（預設 15）買方分點的「買進量 buy」總和 ÷ 全市場買進量 buy 總和 × 100% 注意：不是持股比例、不是大戶持有多少張，而是「期間內買方成交的集中程度」。
-高集中度＝買盤更集中在少數強勢分點（常見於主力作價/控盤/收貨），低集中度＝買盤分散（可能是散戶盤、或輪動較雜）
-「集中度上升 + NetBuy 為正 + Regime 不差」 才是偏高勝率組合。若集中度高但 NetBuy 轉負，常見情境是：高位換手/出貨也會集中（要靠趨勢與價格行為確認）。
->>>以「同一檔股票的歷史分位數」判斷（例如近一年集中度落在前20%才叫偏高）>>看長期
-
-
-1-2、NetBuy 1/5/20 日張數 >>
-
-統計這段時間內主力到底是「淨買入」吃貨還是「淨賣出」倒貨。  1d/5d/20d 同步為正且遞增：代表主力長短期觀點一致，正在持續加碼。
-「期間內全市場（所有分點）net = buy - sell 的總和，再換算成張（/1000）」
-
-NetBuy > 0：整體籌碼在「淨買超」       NetBuy < 0：整體籌碼在「淨賣超」    
-1日看短打、5日看短波段、20日看操作段（目前 20 日 NetBuy=80 張屬於偏小，但 Top15 差值很大，代表「主要力量在 Top15 分點」）
-**關鍵點：**NetBuy 是「全體合計」，不等於「主力」；
-你要搭配：Top15 主力差（主力是否在收貨） 集中度（買盤是否集中） Regime（價格結構是否支持）
-
-NetBuy(20D) 明顯正：這 20 天整體分點偏「收貨」
-NetBuy(5D) 轉負但 20D 仍正：可能「短期洗/調節、但中期仍偏收」
-1D 大正/大負：更偏事件日（隔日容易反向/延續，需配合 Regime/TV）
-
-
-1-3、Breadth（買>賣 家數、差值/比例） >> 這是「籌碼集中度」的終極體現。
-買超家數：該期間 net>0 的分點數 >>「參與收貨的分點更廣」＝群體共識變強（但不代表集中）
-賣超家數：該期間 net<0 的分點數 >> 少數人撐盤或市場偏空
-breadth_ratio：買超家數 ÷（買超+賣超）
-
-買超家數 < 賣超家數 (差值為負)：代表「少數人在買，多數人在賣」。這才是籌碼集中，主力正在從散戶手中收回股票。
-買超家數 > 賣超家數：籌碼分散，即便股價漲，也容易遇到散戶賣壓。
-
-集中 vs 廣度是兩件事：
-集中度＝買量集中在少數分點（控盤感） Breadth＝買超分點多不多（共識感）
-典型高勝率組合常見是：集中度上升（控盤）+ Breadth 不差（不是只有一兩家硬拉）
-
-
-1-4、外資五日主力 vs 本土五日主力 >>判斷這檔股票是「外資盤」還是「內資/本土實力派盤」。
-外資正(買)、本土正(買)：[協同-趨勢] 偏多（加分）
-外資負(賣)、本土正(買)：[分歧-震盪/洗盤/對作]常見是 內資拉、外資砍（短線可能仍走得動，但波動/假突破風險提高）/內資主力（如投信或特定分點）在作帳，股價波動通常比較快。
-外資正(買)、本土負(賣)：[分歧-震盪/洗盤/對作]可能是 外資作價、內資調節（中期需看 Regime 是否承接）/可能是走長期趨勢，跟著外資做波段
-兩者皆負(賣)：[協同]偏空（或高檔派發）
-
-你畫面：外資 -6614、本土 +6381 → 典型「外砍內接」，短期可以走，但要更依賴 Regime/價格行為做風控。
-
-//-------------------------------------------------------------------------------
-Top6 大戶十日軌跡（量化可視化）>>要看/斜率變化/
-監控最核心的 6 個席位。實戰判斷： 看「總計（黃色虛線）」是否斜率向上。
-若股價跌但黃線升，就是典型的「主力護盤/背離吃貨」。
-同步性：Top6 是否一起往上（真協同）斜率變化：斜率變大＝加速收貨；斜率轉平/下＝動能衰退 總計線（你那條黃虛線）：
-代表 Top6 合力是否擴大，如果總計線往上、且 2~3 家大戶同步推進，通常比「只剩一家硬買」更可靠。
-
-多條線一起上：群體收貨 → 趨勢型盤
-只有 1~2 條上，其它平：主導者少 → 拉抬/控盤盤
-線轉平或轉下：開始派發/停手
-
-Top15 買 / 賣（含連買/連賣） 表格>> 買方 Top15 + 連買天數高：像「持續收貨」賣方 Top15 + 連賣天數高：像「持續倒貨」 買方強但賣方也強：容易變成「換手盤」（看 TV rotation / Regime）
-找出「特定贏家分點」。實戰判斷： 如果看到某分點「連買 5 天以上」，這就是所謂的 「囤貨主力」，最值得跟隨。
-買方 Top15：淨買最多的 15 家 賣方 Top15：淨賣最多的 15 家
-連買/連賣：連續幾天淨買/淨賣
-
-➜ 20 日 Top15 主力差（張） = 買前15張數 − 賣前15張數 這指標代表：
-> 0 → 主力 20 日淨積極收貨          < 0 → 主力 20 日淨賣壓            
-越大越偏多頭主力行為          貼近 0 → 洗盤 or 中性盤整
-
-怎麼用：
-找「核心主力」：同一家出現在 Top15 買方且連買增加
-找「對倒/洗盤」：同一集團或相關券商在買賣兩側反覆出現
-找「壓力來源」：賣方 Top15 的前 3~5 名是否集中、是否連賣加速
-
-//-------------------------------------------------------------------------------
-
-C. Regime (中期"結構"底座) >>用 120~250 日K 去建立「中期底座」  >>掃地僧
-趨勢判斷（ma20/60 + slope + breakout120天）
->>透過 MA20/60 的排列與 120 天高低點，判斷目前的「天氣」。
-實戰判斷： * Bull (多頭)：順風，主力推升容易。Transition (轉折)：小心主力開始獲利了結或盤整。
-現在是不是「趨勢盤」？如果不是，最可能是盤整或轉折？你要拿它做「策略切換」：
-ma20 vs ma60：方向底層（多空結構）/ ma60 slope：趨勢斜率（趨勢強弱）/ breakout120：結構突破/跌破（是否脫離箱體）
-
-趨勢盤（bull/bear）：順勢策略比較有效
-盤整（range）：突破失敗多、要縮倉或改用區間策略    
-轉折（transition）：訊號可靠性低、以風控優先
-
-ATR%：波動風險（越高越不穩定）>>平均真實波幅。實戰判斷： 數值越大代表波動越劇烈，你的停損位要設得更遠。
-ATR 的定位是 波動/風險係數：
-ATR 高：代表日內震盪大 → 停損要放寬、槓桿要降低
-ATR 低：代表波動小 → 容易被小洗盤掃到，停損要更講究位置
-
-regime_score(0~100) + regime_trend(bull/bear/range/transition)
-產生 regime_score（0~100）>>regime_score：你「盤勢品質有多好」（趨勢明確、斜率一致、突破成立 → 分數高）
-趨勢 regime_trend（bull/bear/range/transition）>> regime_trend：你「現在在哪種盤勢」
-
-final_score = 0.6 × whale_score(A)  +  0.4 × regime_score(C)
-結合了「籌碼力道」與「股價趨勢」。
-Whale：短期籌碼動能（快） + Regime：中期結構（慢）
-**final_score 的用途：**把「快訊號」放在「慢底座」之上，避免只靠短期籌碼追高或抄底。
-實戰判斷： * > 75 (A等)：天時（趨勢）地利（籌碼）俱備，最強買入點。 45~60 (C等)：雖然有大戶在買，但趨勢還沒出來，可能還在盤整（洗盤）。
-
-KPI = final_score > 75 + TV > 3
-
-whale 高 + regime bull/transition + tv ≥2：偏進攻
-whale 高 + regime range + tv 低：偏觀察/等結構突破
-whale 低 + tv 高：偏短打，不當作中期布局
-//---------------------------------------------------------------------
-B. TradingView Smart Money Radar（TV 系統）>>「價格行為的確認器」，用來過濾「籌碼看起來很好但價格結構不支持」
-1-VWAP 主力成本線站上（sig_vwap）VWAP：股價站在主力成本上。
-2-吸籌偵測（sig_accumulation）Accumulation：有吸籌跡象。
-3-爆量換手（rotation）
-4-HVN 關鍵區（profile zone）
-5-結構突破（BOS）BOS：結構已經突破。
-
-總分 tv_score 0~5
-等級：weak / watch / strong  >>3分以上才買??是的。 在 TV 系統中，3 分代表「訊號共振」：
-tv_score >= 3：可視為「價格行為確認」較完整（偏確認訊號）
-3 分 (Watch)：代表進入攻擊預備區。   4-5 分 (Strong)：主力已經發動攻擊，這是「追價型」的買點。
-
-但是否交易仍要看 Regime（盤整時 3 分也可能假突破）、以及 Whale（籌碼是否配合）
-更穩健的企業級規則是「三層 gating」：
-
-Regime 不是 bear / 或 transition 但有風控
-Whale_score > 60 且集中度/Top15 差值支持
-TV_score >= 3 作為進場/加碼確認
-
-
->>主力強度雷達圖
-集中度 Strength（0~100）
-淨買方向 Direction（0~100）
-買盤廣度 Breadth（0~100）
-外本協同 Alignment（0~100）
-短期加速 Acceleration（0~100）
-
-參數名稱	公式 / 工具	專業投資人的解讀
-籌碼集中度	(前15名買超 - 前15名賣超) / 成交量	> 10% 代表主力正在「暴力掃貨」。
-買賣家數差	今日買進分點數 - 賣出分點數	負值愈大愈好。代表股票從 500 個散戶流向 10 個主力。
-千張大戶比	(持股 > 1000張的人數 / 總股數)	每週更新。連 3 週上升 是主力長期佈局訊號。
-券資比	融券餘額 / 融資餘額	> 30% 且股價創新高，極易發生「軋空行情」。
-
-收集派發指標 (Accumulation/Distribution)：
-AD = 上次 AD + [ (收盤 - 最低) - (最高 - 收盤) ] / (最高 - 最低) * 成交量
-直白解讀： 股價沒漲但 AD 線一直噴，代表主力在盤整區「偷偷買」。
-實質買盤比 (Real Buy Power)：
-實質買盤 = (總量 - 融資買 - 資券相抵 - 融券回補) / 總量
-直白解讀： 扣掉散戶愛用的槓桿工具，看有多少是「現股（真金白銀）」大戶買入。
-
-量化籌碼工具
-分點地圖 (Geographic Heatmap)： 分析買入分點是否在「公司總部附近」。
-直白解讀： 公司門口的分點突然重押，通常代表有內部利多（地緣券商）。
-主力成本帶 (Cost Zone)：
-用你的 Top6 大戶平均買價建構一個區域。
-公式： [min(Top6_AvgPrice), max(Top6_AvgPrice)]。
-應用： 股價跌到這個區域不破，就是最強的「莊家防守點」。
-
 python .\scraper_chip.py --stock_id 6239 --days 20 --debug_tv

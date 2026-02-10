@@ -1,6 +1,9 @@
 # core/pipeline.py
 import pandas as pd
 
+from core.signals_validation import compute_validation_signals
+from core.risk_rules import compute_risk_signals
+
 from core.signals_whale import (
     standardize_columns,
     compute_concentration,
@@ -52,6 +55,7 @@ def analyze_whale_trajectory(
     df_20d = combined[combined["date"].isin(date_20d)].copy()
     df_10d = combined[combined["date"].isin(date_10d)].copy()
     df_5d = combined[combined["date"].isin(date_5d)].copy()
+    df_1d = combined[combined["date"] == last_1d].copy()
 
     # Top6（10日用 net 買方）
     agg_10d = df_10d.groupby(["broker_id", "broker_name"], as_index=False).agg(
@@ -208,17 +212,26 @@ def analyze_whale_trajectory(
     signals["top15_buy_sum_20"] = round(buy_sum_20, 1)
     signals["top15_sell_sum_20"] = round(sell_sum_20, 1)
     # ----------------------------------------------------------
+
+    price_df_tail = pd.DataFrame()  # 避免 TP 參照時 NameError
+    # TV Radar（短期價格行為）
+    ohlcv_20d = fetch_ohlcv_20d(adapter, stock_id, date_20d, debug=debug_tv)
+    price_df = ohlcv_20d if ohlcv_20d is not None else pd.DataFrame()
+    price_df_tail = price_df
+
     # === B. 主力拐點偵測 Turning Points ===
     tp = {}
 
     # 1) 外資 / 本土 轉折
     foreign_5 = float(fl5.get("foreign_net", 0.0))
     local_5 = float(fl5.get("local_net", 0.0))
+    foreign_today = 0.0
+    local_today = 0.0
 
     # 1-1 外資過去 5 日為賣方（總 net <0） 且 今日 net >0
-    today_net = float(combined[combined["date"] == last_1d]["net"].sum())
-    foreign_today = float(df_1d[df_1d["org"] == "foreign"]["net"].sum()) if 'df_1d' in locals() else 0
-    local_today = float(df_1d[df_1d["org"] == "local"]["net"].sum()) if 'df_1d' in locals() else 0
+    if not df_1d.empty and "org" in df_1d.columns:
+        foreign_today = float(df_1d[df_1d["org"] == "foreign"]["net"].sum())
+        local_today = float(df_1d[df_1d["org"] == "local"]["net"].sum())
 
     tp["foreign_buy_switch"] = int(foreign_5 < 0 and foreign_today > 0)
     tp["local_buy_switch"] = int(local_5 < 0 and local_today > 0)
@@ -238,10 +251,12 @@ def analyze_whale_trajectory(
     tp["abnormal_buy_spike"] = int(today_buy >= mean_buy20 * 3)
 
     # 4) 主力成本帶（Top6 均價）防守
-    avg_prices = [float(r["avg_price"]) for r in top6_details if r["avg_price"] > 0]
+    avg_prices = [float(r["avg_price"]) for r in top6_details if r.get("avg_price", 0) > 0]
     if avg_prices:
-        cost_low = min(avg_prices)
-        close_recent = price_df_tail["close"].tail(3).min() if "price_df_tail" in locals() else None
+        cost_low = min(avg_prices)  # ✅ 必須在這裡定義
+        close_recent = None
+        if price_df_tail is not None and not price_df_tail.empty and "close" in price_df_tail.columns:
+            close_recent = float(price_df_tail["close"].tail(3).min())
         tp["cost_zone_defended"] = int(close_recent is not None and close_recent >= cost_low)
     else:
         tp["cost_zone_defended"] = 0
@@ -311,49 +326,52 @@ def analyze_whale_trajectory(
     }
     print("🔎 whale_radar(pipeline)=", signals["whale_radar"])
 
-    # === C2: 主力成本帶 Range + 乖離率 ===
-    avg_prices = [float(r["avg_price"]) for r in top6_details if r["avg_price"] > 0]
-    if avg_prices:
+    # === C2: 主力成本帶 Range + 乖離率 (修正版) ===
+    if avg_prices and ohlcv_20d is not None and not ohlcv_20d.empty:
         cost_low = min(avg_prices)
         cost_high = max(avg_prices)
         enhanced["cost_low"] = round(cost_low, 2)
         enhanced["cost_high"] = round(cost_high, 2)
 
-        if "price_df" in locals():
-            close_last = float(price_df.iloc[-1]["close"])
-            enhanced["close_last"] = close_last
+        # 取得最新收盤價
+        close_last = float(ohlcv_20d.iloc[-1]["close"])
+        enhanced["close_last"] = close_last
 
-            # 乖離率
-            cost_dev = (close_last - cost_low) / cost_low if cost_low > 0 else 0
-            enhanced["cost_deviation"] = round(cost_dev, 3)
+        # 乖離率計算
+        cost_dev = (close_last - cost_low) / cost_low if cost_low > 0 else 0
+        enhanced["cost_deviation"] = round(cost_dev, 3)
 
-            # 區域分類
-            if close_last > cost_high:
-                enhanced["cost_zone_status"] = "above_zone"
-            elif close_last >= cost_low:
-                enhanced["cost_zone_status"] = "inside_zone"
-            else:
-                enhanced["cost_zone_status"] = "below_zone"
+        # 區域狀態判斷
+        if close_last > cost_high:
+            enhanced["cost_zone_status"] = "above_zone"   # 強勢突破
+        elif close_last >= cost_low:
+            enhanced["cost_zone_status"] = "inside_zone"  # 成本區洗盤
+        else:
+            enhanced["cost_zone_status"] = "below_zone"   # 跌破(弱勢)
     else:
         enhanced["cost_zone_status"] = "unknown"
-    # ----------------------------------------------------------
-    # === C3: 連買強度 ===
+
+    # === C3: 連買強度 (修正版) ===
     streak_strength = 0.0
     for r in top6_details:
-        sb = int(r["streak_buy"])
-        if sb <= 0:
-            continue
-        # 該大戶五日買超張數
+        sb = int(r.get("streak_buy", 0)) # 使用 get 避免 KeyError
+        if sb <= 0: continue
+        
         bid = r["broker_id"]
         df_b = df_5d[df_5d["broker_id"] == bid]
         net5 = float(df_b["net"].sum()) / 1000.0
-        avg5 = float(df_5d["net"].sum()) / (len(top6_ids) * 1000.0)
-        if avg5 <= 0:
-            continue
-        strength = (math.log(sb + 1)) * (net5 / avg5)
-        streak_strength = max(streak_strength, strength)
+        # 避免分母為 0
+        total_net5 = float(df_5d["net"].sum()) / 1000.0
+        avg5 = total_net5 / len(top6_ids) if len(top6_ids) > 0 else 0
+        
+        if avg5 > 0:
+            strength = (math.log(sb + 1)) * (net5 / avg5)
+            streak_strength = max(streak_strength, strength)
 
     enhanced["streak_strength"] = round(streak_strength, 3)
+    
+    # 重要：存入 signals
+    signals["enhanced"] = enhanced
     # ----------------------------------------------------------
 
     # Regime（中期趨勢底座）
@@ -361,8 +379,6 @@ def analyze_whale_trajectory(
     regime_pack = compute_regime_signals(price_250d)
     signals.update(regime_pack)
 
-    # TV Radar（短期價格行為）
-    ohlcv_20d = fetch_ohlcv_20d(adapter, stock_id, date_20d, debug=debug_tv)
     if debug_tv:
         print("OHLCV rows=", 0 if ohlcv_20d is None else len(ohlcv_20d))
         print("OHLCV cols=", [] if ohlcv_20d is None else list(ohlcv_20d.columns))
@@ -376,11 +392,12 @@ def analyze_whale_trajectory(
 
     # 最後算主力走向（一次）
     trend_pack = compute_master_trend(signals)
-    signals["score"] = float(trend_pack.get("score", 0) or 0)
+    signals["trend_score"] = float(trend_pack.get("score", 0) or 0)
     signals["trend"] = trend_pack.get("trend", "")
     signals["tags"] = trend_pack.get("tags", [])
+
     # NEW: radar pack
-    signals["whale_radar"] = trend_pack.get("whale_radar", {})
+    signals.setdefault("whale_radar", {})
 
     # ---------------------------------
     def norm_pct(x):
@@ -393,7 +410,95 @@ def analyze_whale_trajectory(
             v *= 100.0
         return max(0.0, min(100.0, v))
     # ---------------------------------
+    # ✅ 放置位置建議：
+    # 1) 先把 ohlcv_20d 抓到（fetch_ohlcv_20d 已完成）
+    # 2) 並且 signals["score"] 已經算完（compute_master_trend 後）
+    # 3) 在 compute_final_pack(signals, cfg) 之前插入以下區塊
 
+    # -------------------------
+    # Validation / Risk (MVP)
+    validation = {
+        "breakout_flag": 0,          # 價格是否突破確認
+        "divergence_flag": 0,        # 籌碼強但價格未確認（背離警示）
+        "confirmation_score": 0.0,   # 0~100：交易有效性總分（簡化版）
+    }
+    risk = {
+        "atr_pct_20d": 0.0,          # 20D ATR%（波動風險）
+        "avg_turnover_20d": 0.0,     # 20D 平均成交值（流動性）
+        "invalid_flag": 0,           # 失效條件（簡化：跌破SMA20）
+    }
+
+    if ohlcv_20d is not None and not ohlcv_20d.empty:
+        dfp = ohlcv_20d.copy()
+
+        # --- Validation: breakout_flag ---
+        if {"close", "high"}.issubset(dfp.columns):
+            close = dfp["close"].astype(float)
+            high = dfp["high"].astype(float)
+
+            sma20 = close.rolling(20).mean()
+            high20 = high.rolling(20).max()
+
+            # 使用「前一日」high20，避免同日引用造成永遠突破
+            if len(dfp) >= 20 and pd.notna(sma20.iloc[-1]) and len(high20) >= 2 and pd.notna(high20.iloc[-2]):
+                last_close = float(close.iloc[-1])
+                last_sma20 = float(sma20.iloc[-1])
+                prev_high20 = float(high20.iloc[-2])
+
+                validation["breakout_flag"] = int(last_close >= last_sma20 and last_close > prev_high20)
+
+        # --- Validation: divergence_flag / confirmation_score ---
+        score_now = float(signals.get("score", 0) or 0)  # 你的籌碼/整合分數
+        validation["divergence_flag"] = int(score_now >= 70 and validation["breakout_flag"] == 0)
+
+        # 簡化版確認分數：breakout 加權 60%，score 加權 40%
+        validation["confirmation_score"] = round(
+            (60.0 if validation["breakout_flag"] else 0.0) + min(max(score_now, 0.0), 100.0) * 0.4,
+            1
+        )
+
+        # --- Risk: ATR% ---
+        if {"high", "low", "close"}.issubset(dfp.columns):
+            high = dfp["high"].astype(float)
+            low = dfp["low"].astype(float)
+            close = dfp["close"].astype(float)
+            prev_close = close.shift(1)
+
+            tr = pd.concat(
+                [(high - low), (high - prev_close).abs(), (low - prev_close).abs()],
+                axis=1
+            ).max(axis=1)
+
+            atr20 = tr.rolling(20).mean()
+            if len(atr20) > 0 and pd.notna(atr20.iloc[-1]) and float(close.iloc[-1]) != 0:
+                risk["atr_pct_20d"] = round(float(atr20.iloc[-1] / close.iloc[-1]), 4)
+
+        # --- Risk: avg_turnover_20d ---
+        # 若有 turnover 欄位，直接用；否則用 close*volume 估（需 volume 欄位）
+        if "turnover" in dfp.columns:
+            risk["avg_turnover_20d"] = float(dfp["turnover"].tail(20).mean())
+        elif {"close", "volume"}.issubset(dfp.columns):
+            risk["avg_turnover_20d"] = float((dfp["close"].astype(float) * dfp["volume"].astype(float)).tail(20).mean())
+
+        # --- Risk: invalid_flag（簡化：跌破SMA20） ---
+        if "close" in dfp.columns:
+            close = dfp["close"].astype(float)
+            sma20 = close.rolling(20).mean()
+            if len(dfp) >= 20 and pd.notna(sma20.iloc[-1]):
+                risk["invalid_flag"] = int(float(close.iloc[-1]) < float(sma20.iloc[-1]))
+
+    # 寫回 signals（分層）
+    signals["validation"] = validation
+    signals["risk"] = risk
+
+    # （可選）過渡期：攤平到 signals，避免你 dashboard 先不用改前端
+    signals["breakout_flag"] = validation["breakout_flag"]
+    signals["divergence_flag"] = validation["divergence_flag"]
+    signals["confirmation_score"] = validation["confirmation_score"]
+    signals["atr_pct_20d"] = risk["atr_pct_20d"]
+    signals["avg_turnover_20d"] = risk["avg_turnover_20d"]
+    signals["invalid_flag"] = risk["invalid_flag"]
+    # -------------------------
     # Aggregation（final_score / grade / weights）
     signals.update(compute_final_pack(signals, cfg))
 

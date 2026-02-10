@@ -63,10 +63,12 @@
   <div class="row justify-content-center">
 
     {% set items = stocks if stocks is defined else ([stock] if stock is defined else []) %}
-
     {% if items and items|length > 0 %}
       {% for stock in items %}
       {% set sig = stock.signals if stock.signals is defined else {} %}
+      {% set val = sig.validation if sig.validation is defined else {} %}
+      {% set risk = sig.risk if sig.risk is defined else {} %}
+
 
       <div class="col-lg-10">
         <div class="card shadow-lg">
@@ -198,7 +200,7 @@
               <div class="col-md-3">
                 <div class="metric-card">
                   <div class="metric-label">主力得分 (0~100)</div>
-                  <div class="metric-value">{{ sig.score if sig.score is defined else 0 }}</div>
+                  <div class="metric-value">{{ sig.final_score if sig.final_score is defined else (sig.score if sig.score is defined else 0) }}</div>
                 </div>
               </div>
 
@@ -243,6 +245,73 @@
                 <h6 class="text-info mb-3">🕸️ 主力強度雷達圖（Whale Strength Radar）</h6>
                 <div class="chart-container-mini" style="height: 340px;">
                   <canvas id="whaleRadar-{{ stock.id }}"></canvas>
+                </div>
+              </div>
+            </div>
+
+            {# ========= Validation / Risk (MVP) ========= #}
+            <h6 class="text-info mt-4 mb-3">✅ 交易有效性驗證 / 🛡 風控層（MVP）</h6>
+
+            <div class="row mb-4 g-3">
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Validation：突破成立</div>
+                  {% set breakout = val.breakout_flag|default(0)|int %}
+                  <div class="metric-value" style="color: {{ '#2ecc71' if breakout==1 else '#999' }};">
+                    {{ 'PASS' if breakout==1 else 'FAIL' }}
+                  </div>
+                  <div class="metric-label">breakout_flag = {{ breakout }}</div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Validation：背離警示</div>
+                  {% set divg = val.divergence_flag|default(0)|int %}
+                  <div class="metric-value" style="color: {{ '#f1c40f' if divg==1 else '#2ecc71' }};">
+                    {{ 'WARN' if divg==1 else 'OK' }}
+                  </div>
+                  <div class="metric-label">divergence_flag = {{ divg }}</div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Validation：確認分數</div>
+                  {% set cs = val.confirmation_score|default(0) %}
+                  <div class="metric-value">{{ cs }}</div>
+                  <div class="metric-label">confirmation_score (0~100)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-4 g-3">
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Risk：波動(ATR%)</div>
+                  {% set atr = risk.atr_pct_20d|default(0) %}
+                  <div class="metric-value">{{ (atr*100) | round(2) }}%</div>
+                  <div class="metric-label">atr_pct_20d = {{ atr }}</div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Risk：成交動能(20D均量/額)</div>
+                  {% set tov = risk.avg_turnover_20d|default(0) %}
+                  <div class="metric-value">{{ (tov/1e8) | round(2) }} 億</div>
+                  <div class="metric-label">avg_turnover_20d</div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="metric-card">
+                  <div class="metric-label">Risk：失效條件</div>
+                  {% set inv = risk.invalid_flag|default(0)|int %}
+                  <div class="metric-value" style="color: {{ '#e74c3c' if inv==1 else '#2ecc71' }};">
+                    {{ 'TRIGGER' if inv==1 else 'SAFE' }}
+                  </div>
+                  <div class="metric-label">invalid_flag = {{ inv }}</div>
                 </div>
               </div>
             </div>
