@@ -2,6 +2,7 @@
 import os
 import json
 import time
+import glob
 import requests
 import pandas as pd
 import urllib3
@@ -221,6 +222,19 @@ def enrich_top6_details(top6_details: list, broker_map: dict) -> list:
         out.append(nb)
     return out
 
+def list_available_stock_ids(data_path: str) -> list:
+    """
+    從 ./data/*_whale_track.json 掃描出 stock_id 清單（字串），並排序
+    """
+    pattern = os.path.join(data_path, "*_whale_track.json")
+    ids = []
+    for p in glob.glob(pattern):
+        base = os.path.basename(p)
+        # 例如 2330_whale_track.json → 2330
+        sid = base.replace("_whale_track.json", "").strip()
+        if sid.isdigit():
+            ids.append(sid)
+    return sorted(set(ids), key=lambda x: int(x))
 
 # ======================================================
 # C. 籌碼規則（TWSE T86 → 近 5 日外資+投信同買）
@@ -301,6 +315,14 @@ def webhook():
 @app.route("/dashboard/")
 def dashboard():
     stock_id = request.args.get("stock_id", "6239").strip()
+
+    # 防呆：只允許數字
+    if not stock_id.isdigit():
+        stock_id = "6239"
+
+    available_ids = list_available_stock_ids(DATA_PATH)
+    available_stocks = [{"id": sid, "name": get_stock_name(sid)} for sid in available_ids]
+
     stock_name = get_stock_name(stock_id)
 
     json_path = os.path.join(DATA_PATH, f"{stock_id}_whale_track.json")
@@ -324,40 +346,70 @@ def dashboard():
 
     if os.path.exists(json_path):
         try:
+            # ✅ 先讀 JSON
             with open(json_path, "r", encoding="utf-8") as f:
                 track_data = json.load(f)
 
-            # 兼容：舊 JSON 沒有 signals
-            signals = track_data.get("signals", {})
-            stock_info["signals"] = signals if isinstance(signals, dict) else {}
+            # ✅ signals + 統一分數
+            signals = track_data.get("signals", {}) or {}
+            if not isinstance(signals, dict):
+                signals = {}
 
-            # 主要圖表欄位
+            final_score = signals.get("final_score", None)
+            score_raw = signals.get("score", 0)
+            signals["score_unified"] = final_score if final_score is not None else score_raw
+            stock_info["signals"] = signals
+
+            # --- flags: 直接用現有 signals 欄位推導（不用改 scraper） ---
+            f5 = float(signals.get("foreign_net_5d", 0) or 0)
+            l5 = float(signals.get("local_net_5d", 0) or 0)
+
+            buy5  = float(signals.get("buy_count_5d", 0) or 0)
+            sell5 = float(signals.get("sell_count_5d", 0) or 0)
+
+            score_u = float(signals.get("score_unified", 0) or 0)
+            trend = str(signals.get("trend", "") or "")
+
+            signals["flags"] = {
+                # 外/本分歧：一正一負（方向相反）
+                "fb_diverge": 1 if (f5 > 0 and l5 < 0) or (f5 < 0 and l5 > 0) else 0,
+
+                # 實盤擴散：買超家數 > 賣超家數（可自行改門檻）
+                "breadth_expand": 1 if (buy5 - sell5) > 0 else 0,
+
+                # 淨賣主導：trend 出現「偏空」或主力得分很低
+                "net_sell_dominate": 1 if ("偏空" in trend) or (score_u <= 30) else 0,
+
+                # 強度高：主力得分 >= 75（可調）
+                "strength_high": 1 if score_u >= 75 else 0,
+            }
+
+            # ✅ 主要圖表欄位
             stock_info["history_labels"] = track_data.get("history_labels", []) or []
             stock_info["whale_data"] = track_data.get("whale_data", []) or []
             stock_info["total_whale_values"] = track_data.get("total_whale_values", []) or []
             top6 = track_data.get("top6_details", []) or []
             stock_info["top6_details"] = enrich_top6_details(top6, broker_map)
 
-            # 更新時間：用檔案 mtime
+            # ✅ 更新時間：用檔案 mtime
             mtime = datetime.fromtimestamp(os.path.getmtime(json_path)).strftime("%Y-%m-%d %H:%M")
             stock_info["last_update"] = mtime
 
-            # 參考日：用 labels 的最後一天（若有）
-            if isinstance(stock_info["history_labels"], list) and len(stock_info["history_labels"]) > 0:
+            # ✅ 參考日：用 labels 的最後一天（若有）
+            if stock_info["history_labels"]:
                 stock_info["probe_date"] = stock_info["history_labels"][-1]
 
-            # 狀態字：把 score/集中度塞進去，跟你截圖一致
-            score = stock_info["signals"].get("score", 0)
+            # ✅ 狀態字：用 score_unified（你問的這行就放這裡）
+            score_for_status = stock_info["signals"].get("score_unified", 0)
             c5 = stock_info["signals"].get("concentration_5d", 0)
             c20 = stock_info["signals"].get("concentration_20d", 0)
             trend = stock_info["signals"].get("trend", "觀察中")
-            stock_info["status"] = f"✅ 籌碼訊號已載入 | Score={score} | 5D={c5}% | 20D={c20}% | {trend}"
+            stock_info["status"] = f"✅ 籌碼訊號已載入 | Score={score_for_status} | 5D={c5}% | 20D={c20}% | {trend}"
 
         except Exception as e:
             stock_info["status"] = f"⚠️ JSON 讀取失敗: {repr(e)}"
 
-    return render_template("dashboard.html", stock=stock_info)
-
+    return render_template("dashboard.html", stock=stock_info, available_stocks=available_stocks)
 
 if __name__ == "__main__":
     # 本機建議 5000；GCP/容器可用環境變數 PORT

@@ -202,19 +202,22 @@ def compute_master_trend(signals: dict) -> dict:
     """
     c5 = float(signals.get("concentration_5d", 0) or 0)
     c20 = float(signals.get("concentration_20d", 0) or 0)
-    nb5 = float(signals.get("netbuy_5d_lot", 0) or 0)
-    nb20 = float(signals.get("netbuy_20d_lot", 0) or 0)
+    d5 = float(signals.get("delta_major_flow_5", 0) or 0)
+    d20 = float(signals.get("delta_major_flow_20", 0) or 0)
     br5 = float(signals.get("breadth_ratio_5d", 0) or 0)
     br20 = float(signals.get("breadth_ratio_20d", 0) or 0)
     f5 = float(signals.get("foreign_net_5d", 0) or 0)
     l5 = float(signals.get("local_net_5d", 0) or 0)
 
-    s_c5 = clamp(c5 / 12.0, 0.0, 1.0)
-    s_c20 = clamp(c20 / 15.0, 0.0, 1.0)
+    s_c5 = clamp(c5 / 6.0, 0.0, 1.0)
+    s_c20 = clamp(c20 / 10.0, 0.0, 1.0)
     strength = 0.55 * s_c5 + 0.45 * s_c20
 
-    dir5 = math.tanh(nb5 / 2500.0)
-    dir20 = math.tanh(nb20 / 6000.0)
+    # 動態尺度：跟股票主力量級走，避免永遠很小
+    scale5 = max(50.0, abs(d20) / 6.0)
+    scale20 = max(80.0, abs(d20) / 3.0)
+    dir5 = math.tanh(d5 / scale5)
+    dir20 = math.tanh(d20 / scale20)
     direction = 0.6 * dir5 + 0.4 * dir20
 
     b5 = clamp((br5 - 0.5) * 2.0, -1.0, 1.0)

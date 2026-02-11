@@ -112,14 +112,11 @@ mickplus1
 //VS Code
 //SQLite https://sqlitebrowser.org/dl/
 //TradingView → Python → SQLite → AI → 永豐 API → Dashboard
-//
-
 
 第一個資料庫 tw_stock.db
 第一張表 chip_inst
 Python 寫入程式（CSV → SQLite）
 SQL 查詢模板（外資連買、大戶連買等）
-
 
 即便技術面突破了，籌碼面不夠硬就不給過
 內部大戶（大股東/董監事）：這類籌碼通常看「長線」，因為大股東不會天天買賣。>>「長線」(X)
@@ -159,4 +156,3 @@ scraper_chip.py：entrypoint / orchestration（args、run_strategy、輸出 JSON
 
 
 //=================================================================================
-python .\scraper_chip.py --stock_id 6239 --days 20 --debug_tv

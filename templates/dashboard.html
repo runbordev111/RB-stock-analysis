@@ -7,8 +7,38 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
+    .led-pill.off{ opacity:.55; }
+    .led-pill.off .led-dot{ background:#555; box-shadow:none; }
+    /* LED Pill */
+    .led-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 14px; border-radius:999px;
+      background:#1e1e1e; border:1px solid #3a3a3a;
+      color:#cfcfcf; font-weight:700; font-size:0.95rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .led-dot{
+      width:10px; height:10px; border-radius:50%;
+      background:#666; box-shadow:none;
+    }
+    .led-pill.on{ color:#fff; border-color:#555; }
+    .led-pill.on .led-dot{
+      background:#22c55e;
+      box-shadow: 0 0 10px rgba(34,197,94,.9), 0 0 20px rgba(34,197,94,.35);
+    }
+    .led-pill.warn .led-dot{
+      background:#f1c40f;
+      box-shadow: 0 0 10px rgba(241,196,15,.9), 0 0 20px rgba(241,196,15,.35);
+    }
+    .led-pill.danger .led-dot{
+      background:#ef4444;
+      box-shadow: 0 0 10px rgba(239,68,68,.9), 0 0 20px rgba(239,68,68,.35);
+    }
+
+    /* 讓按鈕群看起來更像控制面板 */
+    .led-group{ display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; }
+
     .broker-chip {
       display: inline-block;
       width: 10px;
@@ -53,12 +83,73 @@
       margin-top: 6px;
       border: 1px solid #444;
     }
+    /* ✅ 加在這裡：KPI Hero */
+    /* --- 專業化視覺升級 --- */
+    .kpi-hero {
+        background: linear-gradient(145deg, #1e1e1e, #141414);
+        border: 1px solid #333;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    /* 數字發光效果 */
+    .metric-value-glow {
+        text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+        font-family: 'Consolas', monospace; /* 數字使用等寬字體更專業 */
+    }
+
+    /* 成本帶容器優化 */
+    .cost-zone-container {
+        background: #0f0f0f;
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 4px solid #f1c40f;
+    }
+
+    /* 狀態標籤 */
+    .status-pill {
+        padding: 2px 10px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .status-above { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+    .status-inside { background: rgba(241, 196, 15, 0.2); color: #f1c40f; border: 1px solid #f1c40f; }
+    .status-below { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
   </style>
 </head>
 
 <body>
 <div class="container py-5">
-  <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室V1.2.0</h1>
+  <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室V1.3.0</h1>
+
+  <div class="row justify-content-center mb-3">
+    <div class="col-lg-10">
+      <form action="/dashboard/" method="get" class="d-flex align-items-center gap-2">
+        <label for="stock_id" class="mb-0 fs-3 fw-bold text-white">切換股票：</label>
+
+        <select
+          style="font-size: 1.75rem;"
+          id="stock_id"
+          name="stock_id"
+          class="form-select form-select-lg w-auto bg-dark text-white border-secondary"
+          onchange="this.form.submit()"
+        >
+          {% if available_stocks and available_stocks|length > 0 %}
+            {% for s in available_stocks %}
+              <option value="{{ s.id }}" {% if s.id == stock.id %}selected{% endif %}>
+                {{ s.id }} {{ s.name }}
+              </option>
+            {% endfor %}
+          {% else %}
+            <option value="{{ stock.id }}" selected>{{ stock.id }} {{ stock.name }}</option>
+          {% endif %}
+        </select>
+
+        <noscript><button type="submit" class="btn btn-warning btn-lg">切換</button></noscript>
+      </form>
+    </div>
+  </div>
 
   <div class="row justify-content-center">
 
@@ -68,7 +159,6 @@
       {% set sig = stock.signals if stock.signals is defined else {} %}
       {% set val = sig.validation if sig.validation is defined else {} %}
       {% set risk = sig.risk if sig.risk is defined else {} %}
-
 
       <div class="col-lg-10">
         <div class="card shadow-lg">
@@ -94,16 +184,23 @@
                 {% endif %}
                 <div class="{{ cls }}">{{ stock.status }}</div>
 
-                {% if sig.tags is defined and sig.tags %}
-                  <div class="mt-2">
-                    {% for t in sig.tags %}
-                      <span class="tag-pill">{{ t }}</span>
-                    {% endfor %}
-                  </div>
-                {% endif %}
+                {% set f = sig.flags if sig.flags is defined else {} %}
+                <div class="led-group mt-2">
+                  <span class="led-pill {{ 'on' if f.fb_diverge|default(0)|int==1 else 'off' }}">
+                    <span class="led-dot"></span>外/本分歧
+                  </span>
+                  <span class="led-pill {{ 'on' if f.breadth_expand|default(0)|int==1 else 'off' }}">
+                    <span class="led-dot"></span>實盤擴散
+                  </span>
+                  <span class="led-pill {{ 'danger' if f.net_sell_dominate|default(0)|int==1 else 'off' }}">
+                    <span class="led-dot"></span>淨賣主導
+                  </span>
+                  <span class="led-pill {{ 'on' if f.strength_high|default(0)|int==1 else 'off' }}">
+                    <span class="led-dot"></span>強度高
+                  </span>
+                </div>
               </div>
             </div>
-
 
             {# ========= KPI：集中度 & 主力走向 ========= #}
             {% set kpi_c20 = sig.concentration_20d if sig.concentration_20d is defined else 0 %}
@@ -132,7 +229,6 @@
                 </div>
               </div>
             </div>
-
 
             {# ========= TradingView Smart Money Radar ========= #}
             <h6 class="text-info mt-4 mb-3">📡 TradingView 主力行為偵測 Smart Money Radar</h6>
@@ -187,11 +283,20 @@
               </div>
             </div>
 
-
             {# ========= 新增區塊：主力成本帶 Cost Zone ========= #}
-            <h6 class="text-info mt-4 mb-3">🏷 主力成本帶（Top6 Cost Zone）</h6>
-            <div class="chart-container-mini">
-              <canvas id="costZoneChart-{{ stock.id }}"></canvas>
+            <div class="d-flex justify-content-between align-items-end mt-4 mb-2">
+                <h6 class="text-info mb-0">🏷 主力成本帶（Top6 Cost Zone）</h6>
+                {% if sig.enhanced and sig.enhanced.cost_zone_status %}
+                    {% set status = sig.enhanced.cost_zone_status %}
+                    <span class="status-pill {{ 'status-above' if status=='above_zone' else ('status-inside' if status=='inside_zone' else 'status-below') }}">
+                        {{ '強勢突破' if status=='above_zone' else ('成本區洗盤' if status=='inside_zone' else '破位警戒') }}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="cost-zone-container">
+                <div class="chart-container-mini" style="height: 120px;">
+                    <canvas id="costZoneChart-{{ stock.id }}"></canvas>
+                </div>
             </div>
 
             {# ========= KPI：主力分數 & NetBuy ========= #}
@@ -200,7 +305,7 @@
               <div class="col-md-3">
                 <div class="metric-card">
                   <div class="metric-label">主力得分 (0~100)</div>
-                  <div class="metric-value">{{ sig.final_score if sig.final_score is defined else (sig.score if sig.score is defined else 0) }}</div>
+                  <div class="metric-value">{{ sig.score_unified if sig.score_unified is defined else 0 }}</div>
                 </div>
               </div>
 
@@ -351,28 +456,27 @@
               <canvas id="breadthTrend-{{ stock.id }}"></canvas>
             </div>
 
-
             {# ========= 外資/本土 主力 5 日累計 ========= #}
-            <div class="row mb-4">
+            {% set f5 = (sig.foreign_net_5d if sig.foreign_net_5d is defined else 0) %}
+            {% set l5 = (sig.local_net_5d if sig.local_net_5d is defined else 0) %}
+
+            <div class="row mb-4 g-3">
               <div class="col-md-6">
-                <div class="metric-card">
-                  <div class="metric-label">外資主力 5日 (張)</div>
-                  <div class="metric-value">
-                    {{ ((sig.foreign_net_5d if sig.foreign_net_5d is defined else 0) / 1000) | round(1) }}
-                  </div>
+                <div class="kpi-hero {{ 'pos' if f5>=0 else 'neg' }}">
+                  <div class="kpi-title">外資主力 5日（張）</div>
+                  <div class="kpi-num">{{ (f5/1000)|round(1) }}</div>
+                  <div class="kpi-sub">{{ '▲ 偏多' if f5>=0 else '▼ 偏空' }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="metric-card">
-                  <div class="metric-label">本土主力 5日 (張)</div>
-                  <div class="metric-value">
-                    {{ ((sig.local_net_5d if sig.local_net_5d is defined else 0) / 1000) | round(1) }}
-                  </div>
+                <div class="kpi-hero {{ 'pos' if l5>=0 else 'neg' }}">
+                  <div class="kpi-title">本土主力 5日（張）</div>
+                  <div class="kpi-num">{{ (l5/1000)|round(1) }}</div>
+                  <div class="kpi-sub">{{ '▲ 偏多' if l5>=0 else '▼ 偏空' }}</div>
                 </div>
               </div>
             </div>
-
 
             {# ========= Top15 買 / 賣 ========= #}
             <h6 class="text-info mt-4 mb-3">🏦 20日買方 Top15 / 賣方 Top15（含連買/連賣）</h6>
@@ -441,7 +545,6 @@
               </div>
             </div>
 
-
             {# ========= Tornado Bar：20日買賣超排行 ========= #}
             <h6 class="text-info mt-4 mb-3">📊 分點買賣超排行（20日 Top15 買/賣）</h6>
 
@@ -458,23 +561,14 @@
               </div>
             </div>
 
-
             {# ========= Whale 10日軌跡 ========= #}
             <h6 class="text-info mb-3 mt-4">📈 Top 6 核心大戶：近十日買賣超累計軌跡 (張)</h6>
             <div class="chart-container">
               <canvas id="whaleChart-{{ stock.id }}"></canvas>
             </div>
 
-
-            {# ========= 新增 Coherence Trend 圖 ========= #}
-            <h6 class="text-info mt-4 mb-3">👥 主力群聚買超趨勢（Coherence Trend）</h6>
-            <div class="chart-container-mini">
-              <canvas id="coherenceTrend-{{ stock.id }}"></canvas>
-            </div>
-
             {# ========= Top6 大戶詳細資訊 ========= #}
             <h6 class="text-info mt-5 mb-3">📍 Top 6 大戶各別動態清單</h6>
-
             <div class="table-responsive">
               {% set color_map = {} %}
               {% if stock.whale_data %}
@@ -482,7 +576,6 @@
                   {% set _ = color_map.update({ (w.name|string): (w.color|string) }) %}
                 {% endfor %}
               {% endif %}
-
               <table class="table table-dark table-hover border-secondary">
                 <thead>
                   <tr>
@@ -540,10 +633,27 @@
               </table>
             </div>
 
+            {# ========= 新增 Coherence Trend 圖 ========= #}
+            <h6 class="text-info mt-4 mb-3">👥 主力群聚買超趨勢（Coherence Trend）</h6>
+            <div class="chart-container-mini">
+              <canvas id="coherenceTrend-{{ stock.id }}"></canvas>
+            </div>
+
           </div>
         </div>
       </div>
       {# --------------------- Chart.js Render --------------------- #}
+      <script>
+        // 全站 Chart.js 預設（一定要在 JS 區）
+        Chart.defaults.color = '#cfcfcf';
+        Chart.defaults.font.family = "'Segoe UI', 'Microsoft JhengHei', sans-serif";
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.85)';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.12)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.titleColor = '#fff';
+        Chart.defaults.plugins.tooltip.bodyColor = '#eaeaea';
+      </script>
       <script>
         (function () {
           // ========= 0) data =========
@@ -619,25 +729,39 @@
           const sellCanvas = document.getElementById('rankSell-{{ stock.id }}');
 
           if (buyCanvas && sellCanvas) {
-            const buyList = (sig && sig.top_buy_15) ? [...sig.top_buy_15] : [];
+            const buyList  = (sig && sig.top_buy_15)  ? [...sig.top_buy_15]  : [];
             const sellList = (sig && sig.top_sell_15) ? [...sig.top_sell_15] : [];
 
             buyList.sort((a,b) => Number(b.net_lot ?? 0) - Number(a.net_lot ?? 0));
             sellList.sort((a,b) => Number(a.net_lot ?? 0) - Number(b.net_lot ?? 0));
 
             const N = 15;
-            const buyTop = buyList.slice(0, N);
+            const buyTop  = buyList.slice(0, N);
             const sellTop = sellList.slice(0, N);
 
             const buyLabels = buyTop.map(r => `${(r.broker_id ?? '')} ${(r.broker_name ?? '')}`.trim());
             const buyVals   = buyTop.map(r => Math.max(0, Number(r.net_lot ?? 0)));
+            const buyIsForeign = buyTop.map(r => (r.broker_org_type ?? '') === 'foreign');
 
             const sellLabels = sellTop.map(r => `${(r.broker_id ?? '')} ${(r.broker_name ?? '')}`.trim());
             const sellVals   = sellTop.map(r => Math.abs(Math.min(0, Number(r.net_lot ?? 0))));
+            const sellIsForeign = sellTop.map(r => (r.broker_org_type ?? '') === 'foreign');
+
+            // ===== 配色策略（黑底高辨識 + 互補色）=====
+            // 左：買超（本土=亮綠、外資=亮紫）
+            const BUY_LOCAL_COLOR    = '#84cc16'; // 亮綠（本土）
+            const BUY_FOREIGN_COLOR  = '#c084fc'; // 亮紫（外資）—綠的互補方向、黑底好看
+
+            // 右：賣超（本土=紅、外資=藍）—你目前右半邊已清楚就維持這個邏輯
+            const SELL_LOCAL_COLOR   = '#e06a6a'; // 本土賣超
+            const SELL_FOREIGN_COLOR = '#60a5fa'; // 外資賣超
+
+            const buyColors  = buyIsForeign.map(isF => isF ? BUY_FOREIGN_COLOR : BUY_LOCAL_COLOR);
+            const sellColors = sellIsForeign.map(isF => isF ? SELL_FOREIGN_COLOR : SELL_LOCAL_COLOR);
 
             const maxAbs = Math.max(1, ...buyVals, ...sellVals);
 
-            const baseOptions = (side) => ({
+            const baseOptions = (side, isForeignArr) => ({
               indexAxis: 'y',
               responsive: true,
               maintainAspectRatio: false,
@@ -653,7 +777,15 @@
                 y: {
                   position: (side === 'right') ? 'right' : 'left',
                   grid: { display: false },
-                  ticks: { color: '#d0d0d0', padding: 6 }
+                  ticks: {
+                    color: '#d0d0d0',
+                    padding: 6,
+                    // 外資的 label 用粗體，提升辨識度
+                    font: (ctx) => {
+                      const i = ctx.index;
+                      return { weight: (isForeignArr && isForeignArr[i]) ? '900' : '400' };
+                    }
+                  }
                 }
               },
               plugins: {
@@ -668,7 +800,7 @@
             if (window.__rankTornado[key]?.buy)  { try { window.__rankTornado[key].buy.destroy(); } catch(e) {} }
             if (window.__rankTornado[key]?.sell) { try { window.__rankTornado[key].sell.destroy(); } catch(e) {} }
 
-            const buyCtx = buyCanvas.getContext('2d');
+            const buyCtx  = buyCanvas.getContext('2d');
             const sellCtx = sellCanvas.getContext('2d');
 
             const buyChart = new Chart(buyCtx, {
@@ -678,12 +810,12 @@
                 datasets: [{
                   label: '買超(張)',
                   data: buyVals,
-                  backgroundColor: '#9bd23c',
+                  backgroundColor: buyColors,
                   borderWidth: 0,
                   barThickness: 14
                 }]
               },
-              options: baseOptions('left')
+              options: baseOptions('left', buyIsForeign)
             });
 
             const sellChart = new Chart(sellCtx, {
@@ -693,12 +825,12 @@
                 datasets: [{
                   label: '賣超(張)',
                   data: sellVals,
-                  backgroundColor: '#e06a6a',
+                  backgroundColor: sellColors,
                   borderWidth: 0,
                   barThickness: 14
                 }]
               },
-              options: baseOptions('right')
+              options: baseOptions('right', sellIsForeign)
             });
 
             window.__rankTornado[key] = { buy: buyChart, sell: sellChart };
@@ -758,13 +890,16 @@
               data: {
                 labels,
                 datasets: [{
-                  label: 'Whale Strength (0~100)',
-                  data: values,
-                  borderColor: '#4aa3ff',
-                  backgroundColor: 'rgba(74,163,255,0.18)',
-                  pointBackgroundColor: '#4aa3ff',
-                  borderWidth: 2,
-                  pointRadius: 3
+                    label: '主力強度綜合評分',
+                    data: values,
+                    borderColor: '#00f2ff', // 霓虹藍
+                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
+                    pointBackgroundColor: '#00f2ff',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#00f2ff',
+                    borderWidth: 3,
+                    lineTension: 0.1
                 }]
               },
               options: {
@@ -776,6 +911,9 @@
                 },
                 scales: {
                   r: {
+                    backgroundColor: 'rgba(20, 20, 20, 0.9)', // 深色背景讓線條更明顯
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    angleLines: { color: 'rgba(255, 255, 255, 0.1)' },                  
                     min: 0,
                     max: 100,
                     ticks: {

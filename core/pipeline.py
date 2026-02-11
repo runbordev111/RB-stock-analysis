@@ -47,6 +47,10 @@ def analyze_whale_trajectory(
 
     combined["date"] = combined["date"].astype(str)
 
+    # 補上 org 欄位：讓 df_1d 可以用 org 分外資/本土
+    combined["broker_id"] = combined["broker_id"].astype(str).str.strip()
+    combined["org"] = combined["broker_id"].map(lambda x: (broker_map.get(x, {}).get("broker_org_type", "unknown") or "unknown"))
+
     date_20d = list(target_dates)
     date_10d = date_20d[-10:] if len(date_20d) >= 10 else date_20d
     date_5d = date_20d[-5:] if len(date_20d) >= 5 else date_20d
@@ -195,7 +199,7 @@ def analyze_whale_trajectory(
     def _tanh_0_100(x):# x=0 -> 50；正向上升 -> 越接近100；負向 -> 越接近0
         return round(50.0 + 50.0 * math.tanh(x), 1)
 
-    # === A. ΔMajorFlow20：買方 Top15 張數 - 賣方 Top15 張數 ===
+    # === A. ΔMajorFlow20：20日買方 Top15 張數 - 賣方 Top15 張數 ===
     buy_sum_20 = 0.0
     sell_sum_20 = 0.0
 
@@ -211,6 +215,25 @@ def analyze_whale_trajectory(
     signals["delta_major_flow_20"] = delta_major_flow_20
     signals["top15_buy_sum_20"] = round(buy_sum_20, 1)
     signals["top15_sell_sum_20"] = round(sell_sum_20, 1)
+
+    # === A2. ΔMajorFlow5：5日買方 Top15 - 賣方 Top15 ===
+    top15_5 = build_top15_tables(df_5d, broker_map, date_5d)
+
+    buy_sum_5 = 0.0
+    sell_sum_5 = 0.0
+
+    if top15_5.get("top_buy_15"):
+        buy_sum_5 = sum(float(r.get("net_lot", 0) or 0) for r in top15_5["top_buy_15"])
+
+    if top15_5.get("top_sell_15"):
+        sell_sum_5 = sum(abs(float(r.get("net_lot", 0) or 0)) for r in top15_5["top_sell_15"])
+
+    delta_major_flow_5 = round(buy_sum_5 - sell_sum_5, 1)
+
+    signals["delta_major_flow_5"] = delta_major_flow_5
+    signals["top15_buy_sum_5"] = round(buy_sum_5, 1)
+    signals["top15_sell_sum_5"] = round(sell_sum_5, 1)
+
     # ----------------------------------------------------------
 
     price_df_tail = pd.DataFrame()  # 避免 TP 參照時 NameError
@@ -395,9 +418,9 @@ def analyze_whale_trajectory(
     signals["trend_score"] = float(trend_pack.get("score", 0) or 0)
     signals["trend"] = trend_pack.get("trend", "")
     signals["tags"] = trend_pack.get("tags", [])
-
-    # NEW: radar pack
-    signals.setdefault("whale_radar", {})
+    signals["score"] = signals["trend_score"]          # 給 validation / 其它模組用
+    signals["score_unified"] = signals["trend_score"]  # 給 dashboard 既有欄位用
+    signals["whale_radar"] = trend_pack.get("whale_radar", {}) or {} 
 
     # ---------------------------------
     def norm_pct(x):
@@ -448,14 +471,12 @@ def analyze_whale_trajectory(
                 validation["breakout_flag"] = int(last_close >= last_sma20 and last_close > prev_high20)
 
         # --- Validation: divergence_flag / confirmation_score ---
-        score_now = float(signals.get("score", 0) or 0)  # 你的籌碼/整合分數
+        # # 你的籌碼/整合分數
+        score_now = float(signals.get("trend_score", 0) or 0)
         validation["divergence_flag"] = int(score_now >= 70 and validation["breakout_flag"] == 0)
 
         # 簡化版確認分數：breakout 加權 60%，score 加權 40%
-        validation["confirmation_score"] = round(
-            (60.0 if validation["breakout_flag"] else 0.0) + min(max(score_now, 0.0), 100.0) * 0.4,
-            1
-        )
+        validation["confirmation_score"] = round((60.0 if validation["breakout_flag"] else 0.0) + min(max(score_now, 0.0), 100.0) * 0.4, 1)
 
         # --- Risk: ATR% ---
         if {"high", "low", "close"}.issubset(dfp.columns):

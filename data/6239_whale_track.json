@@ -610,6 +610,9 @@
     "delta_major_flow_20": -989.7,
     "top15_buy_sum_20": 32948.3,
     "top15_sell_sum_20": 33938.0,
+    "delta_major_flow_5": -1651.0,
+    "top15_buy_sum_5": 10316.9,
+    "top15_sell_sum_5": 11967.9,
     "turning_points": {
       "foreign_buy_switch": 0,
       "local_buy_switch": 0,
@@ -626,24 +629,18 @@
         "短期加速"
       ],
       "values": [
-        30.4,
-        50.0,
-        61.4,
-        70.0,
-        50.0
+        100,
+        0,
+        61,
+        25,
+        50
       ],
-      "debug": {
-        "c20": 30.43,
-        "net1": 0.0,
-        "net5": 0.0,
-        "net20": 82.0,
-        "scale": 20.5,
-        "breadth_ratio_5d": 0.6137,
-        "foreign_5d": -7386149.0,
-        "local_5d": 7215995.0,
-        "same_sign": 0,
-        "avg5": 0.0,
-        "den": 5.0
+      "raw": {
+        "strength": 1.0,
+        "direction": -0.9980218990458855,
+        "breadth": 0.227,
+        "align": -0.5058263361873434,
+        "acc": -0.004945242265258387
       }
     },
     "enhanced": {
@@ -657,14 +654,13 @@
       "cost_zone_status": "below_zone",
       "streak_strength": 0.0
     },
-    "regime_score": 65,
-    "regime_trend": "transition",
+    "regime_score": 70,
+    "regime_trend": "bull",
     "regime_tags": [
       "ma20>ma60",
       "ma60_up",
       "inside_120d_range",
-      "atr_high",
-      "regime_transition"
+      "atr_mid"
     ],
     "sig_vwap": 0,
     "sig_accumulation": 0,
@@ -691,16 +687,19 @@
       "vol_shrink": true,
       "hl_shrink": false
     },
-    "score": 70.0,
+    "trend_score": 58.0,
     "trend": "震盪",
     "tags": [
       "外/本分歧",
+      "淨賣主導",
       "方向拉扯"
     ],
+    "score": 58.0,
+    "score_unified": 58.0,
     "validation": {
       "breakout_flag": 0,
-      "divergence_flag": 1,
-      "confirmation_score": 28.0
+      "divergence_flag": 0,
+      "confirmation_score": 23.2
     },
     "risk": {
       "atr_pct_20d": 0.0608,
@@ -708,12 +707,12 @@
       "invalid_flag": 1
     },
     "breakout_flag": 0,
-    "divergence_flag": 1,
-    "confirmation_score": 28.0,
+    "divergence_flag": 0,
+    "confirmation_score": 23.2,
     "atr_pct_20d": 0.0608,
     "avg_turnover_20d": 4966548127.025,
     "invalid_flag": 1,
-    "final_score": 68.0,
+    "final_score": 62.8,
     "final_grade": "B",
     "weights": {
       "whale": 0.6,
@@ -723,5 +722,5 @@
   "stock_id": "6239",
   "stock_name": "力成",
   "probe_date": "2026-02-10",
-  "last_update": "2026-02-11 00:19"
+  "last_update": "2026-02-11 17:43"
 }
