@@ -236,7 +236,7 @@
             <div class="row mb-4">
               <div class="col-md-3">
                 <div class="metric-card">
-                  <div class="metric-label">TV Score (0~5)</div>
+                  <div class="metric-label">TV Score (>3才執行交易)</div>
                   <div class="metric-value">{{ sig.tv_score if sig.tv_score is defined else 0 }}</div>
                   <div class="metric-label mt-1 text-warning">
                     等級：{{ sig.tv_grade if sig.tv_grade is defined else 'weak' }}
@@ -255,7 +255,7 @@
                       </span>
                     </div>
 
-                    <div class="tag-pill">吸籌偵測：
+                    <div class="tag-pill">OBV/A-D 吸籌偵測：
                       <span style="color:{{ 'lime' if sig.sig_accumulation else '#999' }}">
                         {{ sig.sig_accumulation if sig.sig_accumulation is defined else 0 }}
                       </span>
@@ -267,13 +267,13 @@
                       </span>
                     </div>
 
-                    <div class="tag-pill">HVN 關鍵區：
+                    <div class="tag-pill">HVN 量價關鍵區：
                       <span style="color:{{ 'lime' if sig.sig_profile_zone else '#999' }}">
                         {{ sig.sig_profile_zone if sig.sig_profile_zone is defined else 0 }}
                       </span>
                     </div>
 
-                    <div class="tag-pill">結構突破 BOS：
+                    <div class="tag-pill">BOS 結構突破：
                       <span style="color:{{ 'lime' if sig.sig_structure_break else '#999' }}">
                         {{ sig.sig_structure_break if sig.sig_structure_break is defined else 0 }}
                       </span>
@@ -395,8 +395,17 @@
                 <div class="metric-card">
                   <div class="metric-label">Risk：波動(ATR%)</div>
                   {% set atr = risk.atr_pct_20d|default(0) %}
-                  <div class="metric-value">{{ (atr*100) | round(2) }}%</div>
-                  <div class="metric-label">atr_pct_20d = {{ atr }}</div>
+                  {% set atr_pct = atr * 100 %}
+                  <div class="metric-value">{{ atr_pct | round(2) }}%</div>
+                  {% if atr_pct < 2 %}
+                    <div class="metric-label">低波動（較穩）</div>
+                  {% elif atr_pct < 5 %}
+                    <div class="metric-label">中波動（一般）</div>
+                  {% elif atr_pct < 10 %}
+                    <div class="metric-label">高波動（需控倉、停損加寬）</div>
+                  {% else %}
+                    <div class="metric-label">極高波動（容易被洗、滑價與風險上升）</div>
+                  {% endif %}
                 </div>
               </div>
 

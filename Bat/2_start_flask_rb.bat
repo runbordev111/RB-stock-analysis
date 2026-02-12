@@ -13,7 +13,7 @@ if not exist "venv\Scripts\activate" (
 
 :: 啟動程序
 echo start Flask Web Server...
-call .\venv\Scripts\activate
+.\venv\Scripts\activate
 python rb_tv_app.py
 
 echo 🚀 RB TradingCentor Flask Started!
