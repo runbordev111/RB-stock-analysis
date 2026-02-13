@@ -32,6 +32,9 @@ https://medicably-aeromechanical-yadiel.ngrok-free.dev/webhook
 git config --global user.name "RTKmick"
 git config --global user.email "mick.sung01@gmail.com"
 
+set GOOGLE_MAPS_API_KEY=AIzaSyCSZEA-ruY_Ks5iruFShgPZBbABrrp864o
+Geocoding API
+
 
 //===========================================================================
 
