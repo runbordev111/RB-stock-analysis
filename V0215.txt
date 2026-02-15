@@ -162,3 +162,96 @@ scraper_chip.py：entrypoint / orchestration（args、run_strategy、輸出 JSON
 Every step leaves a trace. (凡走過必留下痕跡)
 Motivation gets you started. Discipline keeps you going. — Mick Sung
 "The price of excellence is discipline."
+
+
+
+//-----------------------------------------------------------------------------
+分點（券商分點）→ 真正的大戶足跡（你已經有 Top6/Top15 的概念，但要跟 FinMind 的分點資料對接）
+A. 「大戶足跡」的第一優先：分點級資料（你的核心護城河）
+TaiwanStockTradingDailyReport（分點：query by 股票/券商）：用來做你現在的「Top6/Top15 大戶」主訊號。
+TaiwanStockTradingDailyReportSecIdAgg（當日分點統計彙總）：做「分點集中度、同向協同、買賣方壓力」的特徵工程。
+TaiwanSecuritiesTraderInfo（券商資訊）：把分點代碼映射成可用的券商/分公司主檔。
+若你是 sponsor 等級，分點資料會是你系統的「差異化資料護城河」，因為它能把「市場雜訊」降維成「少數主導者行為」。
+TopN 分點淨買超動能
+指標：Top6/Top15 的 NetBuy 斜率（5D、10D、20D）、加速度（差分）
+分點集中度（Concentration）與協同（Consensus）
+指標：TopN 買方占比、買方名單穩定度（重疊率）、買賣方是否「同向」
+成本帶貼合度（Cost Zone Adherence）
+你已經有 Cost Zone：接下來把它跟「分點平均成本」或「大戶累積成交均價」做交叉驗證（避免只用價格推估）
+交易直覺：「有分點動能 + 有集中度 + 有成本帶支撐」 才叫大戶主導；否則多半是市場情緒或隔日沖噪音。
+
+
+持股結構（股權分散）→ 籌碼鎖定程度（能解釋「為何拉、為何不拉、為何洗」）
+B. 「籌碼鎖定」的第二優先：股權分散/外資持股（解釋趨勢能不能續航）
+TaiwanStockHoldingSharesPer（股權持股分級表）：判斷籌碼集中、散戶比例變化、以及是否進入「鎖碼→拉抬」的條件。
+TaiwanStockShareholding（外資持股表）：外資持股水位變化，是中期趨勢與評價重估的核心變數之一。
+股權分散改善（籌碼往大戶層級集中）
+指標：大戶級距比例上升、散戶級距下降的趨勢
+外資持股水位與變化率
+指標：持股比例上升 + 分點買盤一致，通常是中期趨勢的「續航條件」
+
+
+
+融資融券/借券 → 供需槓桿與放空壓力（能把「震盪」拆成：洗盤/出貨/換手/軋空前置）
+C. 「槓桿供需」的第三優先：融資融券/借券（把震盪拆解成可交易結構）
+TaiwanStockMarginPurchaseShortSale（個股融資融券）：做「融資加速/融資斷頭風險/融券壓力」的風控與情境判讀。
+TaiwanStockSecuritiesLending（借券成交明細）：借券增加常常意味著供給端放空/避險力量在集結。
+TaiwanStockMarginShortSaleSuspension（融券回補日/暫停融券）：用來抓「軋空事件」時間窗。
+你已經用 ATR% 做波動分層，下一步把它升級成「情境風控」：
+融資增幅過快：容易變成「拉高出貨」或「爆量隔日沖」，勝率下降
+借券/融券壓力上升 + 回補時間窗：更容易走「軋空段」，但也更容易急拉急殺，需要倉位與停損規則配合
+處置/信用管制：直接降槓桿、降週轉的策略權重（避免風險資本被鎖住）
+
+
+FinMind 台股「籌碼面」本身就把你需要的資料列成一套資料集清單，
+包含：融資融券、三大法人、外資持股、股權分散（分級）、借券、分點、分點彙總、八大行庫、處置等。
+API 入口與資料取得也可直接走官方 API（v4 data）與 Swagger 文件。
+
+可直接拿（Data Moat Inputs）
+
+分點買賣：TaiwanStockTradingDailyReport / SecIdAgg
+股權分散：TaiwanStockHoldingSharesPer
+外資持股：TaiwanStockShareholding
+融資融券：TaiwanStockMarginPurchaseShortSale
+借券：TaiwanStockSecuritiesLending
+處置/管制：TaiwanStockDispositionSecuritiesPeriod、TaiwanDailyShortSaleBalances
+
+分點名單穩定度：TopN 名單 10 日滾動重疊率（越高越像「同一批人」在做事）
+買盤結構品質：TopN 淨買超 / 全市場成交量（避免「買很多但量更大」其實只是噪音）
+籌碼鎖定指標：股權分散的集中度變化率 vs 價格趨勢（鎖碼≠漲，但「鎖碼+突破」勝率通常提升）
+槓桿風險係數：融資餘額增速、融券壓力、借券增速 → 合成風險分數（你現有 ATR% 可以當其中一個維度）
+
+1. 散戶對照組（反向指標）
+籌碼分析的核心在於「大戶買、散戶賣」。
+數據點： taiwan_stock_margin_purchase_short_sale (融資融券)。
+應用： 如果 Top 6 大戶在買，但融資也在增加，通常代表籌碼不夠純淨，上漲壓力大。最強的買訊是：Top 6 買進 + 融資減（散戶下車）。
+
+2. 股東持股分級（長線大戶動向）
+您目前的圖表是「分點買賣超（短中期）」，需要配合「週資料」確認長線大戶是否也在加碼。
+數據點： taiwan_stock_shareholding_class (股東持股分級)。
+應用： 監控「400 張以上」或「1000 張以上」大戶的持股比例是否逐週上升。如果分點在買，但千張大戶在賣，那可能只是短線隔日沖分點在運作，勝率會降低。
+
+3. 借券賣出（避險與空頭壓制）
+光聖（6442）屬於高波動股票，大戶有時會透過借券進行套利或壓制。
+數據點： taiwan_stock_institutional_investors_buy_sell 中的「借券賣出」。
+應用： 觀察 Top 6 大戶買進時，借券賣出是否在「還券」。如果大戶買、借券還，那是極強的軋空訊號。
+
+4. 基本面與籌碼的「乖離」
+數據點： taiwan_stock_month_revenue (月營收)。
+應用： 當營收創新高，但 Top 6 大戶卻提前轉賣（圖二的紅線向下），這通常是營收利多出盡的訊號。
+
+三、 實作策略建議
+既然您有 FinMind 帳號並使用 Python，建議在您的分析工具中加入以下邏輯：
+分點集中度校正： 利用 FinMind 取得全市場成交量，校正您的 20日集中度。如果集中度提高，但成交量萎縮，代表籌碼進入「極度鎖定」狀態，噴發力道最強。
+大戶成本線預警： 您圖三有「主力成本帶」。您可以利用 FinMind 的 taiwan_stock_daily (日成交價) 計算大戶的 「成本浮動盈虧」。
+邏輯： 當股價回測「主力成本帶」且大戶並未撤退（Top 6 累計張數沒掉）時，這就是最佳的 「二波起漲買點」。
+
+
+請在 FinMind 中重點抓取 「融資餘額」 與 「股東持股分級」。
+
+勝率組合建議：
+多頭： 股價突破成本線 + Top 6 累計向上 + 融資餘額下降 + 千張大戶持股增。
+防守（圖二 Risk 處）： 加入「借券賣出」餘額。如果借券賣出開始異常激增，即使 Top 6 沒賣，也要提防轉折。
+
+做處理，在每個地址欄位後面加上經緯度與地址轉換，對於你實作「計算距離」
+
