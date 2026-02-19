@@ -230,9 +230,186 @@
               </div>
             </div>
 
+            {# ====== GEO: Bilingual Plain-language Decision Panel (SAFE JINJA) ====== #}
+            {% set g    = sig.geo_grade if sig.geo_grade is defined else 'NA' %}
+            {% set gtag = sig.geo_tag   if sig.geo_tag   is defined else '' %}
+            {% set km   = sig.geo_top5_wavg_km if sig.geo_top5_wavg_km is defined else None %}
+            {% set z    = sig.geo_zscore       if sig.geo_zscore       is defined else None %}
+            {% set aff  = sig.geo_affinity_score if sig.geo_affinity_score is defined else None %}
+
+            {# ---- baseline tag fallback (NO .get / NO mapping) ---- #}
+            {% set bt = sig.geo_baseline_tag if sig.geo_baseline_tag is defined else '' %}
+            {% if (not bt) and (gtag is string) and ('|baseline_' in gtag) %}
+              {% set bt = gtag.split('|')[-1] %}
+            {% endif %}
+
+            {% set bw  = sig.geo_baseline_weight if sig.geo_baseline_weight is defined else None %}
+            {% set adj = sig.geo_adjust          if sig.geo_adjust          is defined else None %}
+
+            {# ---- min/avg from geo_top5_detail[*].km_to_hq ---- #}
+            {% set gdetail = sig.geo_top5_detail if sig.geo_top5_detail is defined else [] %}
+            {% set kms = [] %}
+            {% if gdetail and (gdetail is sequence) %}
+              {% for r in gdetail %}
+                {% if r is mapping %}
+                  {% if r.km_to_hq is defined and r.km_to_hq is not none %}
+                    {% set _ = kms.append(r.km_to_hq|float) %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {% set km_min = (kms|min) if kms and (kms|length>0) else None %}
+            {% set km_avg = ((kms|sum) / (kms|length)) if kms and (kms|length>0) else None %}
+
+            {# -------- helper: Geo Grade copy -------- #}
+            {% if g == 'A' %}
+              {% set grade_en = "Geo Grade (A): Near-core clustering" %}
+              {% set grade_zh = "地緣集中A級：主力分點集中在核心圈，偏向有計畫的佈局/吸籌" %}
+              {% set geo_one_liner = "主力分點集中在公司附近 → 比較像同一批人有計畫地在操作 / Near-HQ clustering → planned accumulation likely." %}
+            {% elif g == 'B' %}
+              {% set grade_en = "Geo Grade (B): Same trading circle (likely)" %}
+              {% set grade_zh = "地緣集中B級：同交易圈範圍 → 可能主力佈局，仍需配合壓力比/名單穩定度確認" %}
+              {% set geo_one_liner = "同交易圈範圍 → 可能主力佈局，需搭配壓力比/名單穩定度 / Same trading circle → verify with pressure & stability." %}
+            {% elif g == 'C' %}
+              {% set grade_en = "Geo Grade (C): Cross-region distribution" %}
+              {% set grade_zh = "地緣集中C級：跨區域分布 → 市場雜訊/短線資金機率較高，延續性偏低" %}
+              {% set geo_one_liner = "跨區分布 → 偏市場雜訊/短線資金，延續性較低 / Cross-region → noisier, lower persistence." %}
+            {% elif g == 'D' %}
+              {% set grade_en = "Geo Grade (D): Far & dispersed" %}
+              {% set grade_zh = "地緣集中D級：分散很遠 → 交易圈不集中，地緣訊號弱" %}
+              {% set geo_one_liner = "分散很遠 → 地緣訊號弱，較不像同一批主導者 / Far & dispersed → weak geo signal." %}
+            {% else %}
+              {% set grade_en = "Geo Grade: N/A" %}
+              {% set grade_zh = "地緣集中：資料不足/未計算" %}
+              {% set geo_one_liner = "資料不足 → geo 暫不納入決策主軸 / Insufficient data → do not rely on geo yet." %}
+            {% endif %}
+
+            {# -------- helper: Z-Score copy -------- #}
+            {% set z_en = "Z-Score: N/A" %}
+            {% set z_zh = "Z-Score：資料不足（無 baseline 或樣本不足）" %}
+            {% if z is not none %}
+              {% if z <= -1.2 %}
+                {% set z_en = "Z-Score (<= -1.2): Abnormally close vs baseline" %}
+                {% set z_zh = "Z-Score <= -1.2：異常接近 → 高度像同一批人集中操作（強加分）" %}
+              {% elif z <= -0.5 %}
+                {% set z_en = "Z-Score (-1.2 ~ -0.5): Clearly closer than baseline" %}
+                {% set z_zh = "Z-Score -1.2 ~ -0.5：明顯較近 → 地緣訊號偏強（加分）" %}
+              {% elif z < 0.5 %}
+                {% set z_en = "Z-Score (-0.5 ~ +0.5): Near baseline" %}
+                {% set z_zh = "Z-Score -0.5 ~ +0.5：接近常態 → 地緣不加不扣分" %}
+              {% else %}
+                {% set z_en = "Z-Score (>= +0.5): Farther than baseline" %}
+                {% set z_zh = "Z-Score >= +0.5：比常態更遠 → 分點分散，訊號偏弱（扣分）" %}
+              {% endif %}
+            {% endif %}
+
+            {# -------- helper: Affinity copy -------- #}
+            {% set aff_en = "Affinity: N/A" %}
+            {% set aff_zh = "Affinity：資料不足" %}
+            {% if aff is not none %}
+              {% if aff >= 80 %}
+                {% set aff_en = "Affinity (>=80): Highly concentrated" %}
+                {% set aff_zh = "Affinity >= 80：很集中 → 行為一致性高（偏主力）" %}
+              {% elif aff >= 60 %}
+                {% set aff_en = "Affinity (60~80): Moderately concentrated" %}
+                {% set aff_zh = "Affinity 60~80：中等集中 → 需要看壓力比/名單穩定度確認" %}
+              {% else %}
+                {% set aff_en = "Affinity (<60): Dispersed / noisy" %}
+                {% set aff_zh = "Affinity < 60：偏分散 → 偏雜訊/短線資金" %}
+              {% endif %}
+            {% endif %}
+
+            {# -------- helper: Baseline / Weight / Adjust copy -------- #}
+            {% set ref_en = "Reference-Z: Baseline N/A" %}
+            {% set ref_zh = "Reference-Z：Baseline 基準線不足" %}
+            {% if bt %}
+              {% if 'baseline_org_city' in bt %}
+                {% set ref_en = "Reference-Z: Org+City baseline (most precise)" %}
+                {% set ref_zh = "Baseline（同外/本 + 同城市）：最精準 → geo 訊號可強採信" %}
+              {% elif 'baseline_org' in bt %}
+                {% set ref_en = "Reference-Z: Org baseline (moderate precision)" %}
+                {% set ref_zh = "Baseline（同外/本）：中等精準 → 正常採信" %}
+              {% elif bt == 'baseline_all' %}
+                {% set ref_en = "Reference-Z: All-brokers baseline (coarse)" %}
+                {% set ref_zh = "Baseline（全市場）：較粗 → 保守採信" %}
+              {% elif bt == 'baseline_insufficient' %}
+                {% set ref_en = "Reference-Z: Insufficient samples" %}
+                {% set ref_zh = "Baseline（樣本不足）：不建議用 geo 當決策主軸" %}
+              {% else %}
+                {% set ref_en = "Reference-Z: Baseline available" %}
+                {% set ref_zh = "Baseline：已提供（一般採信）" %}
+              {% endif %}
+            {% endif %}
+
+            {% set w_en = "Weight: N/A" %}
+            {% set w_zh = "Weight：資料不足" %}
+            {% if bw is not none %}
+              {% set w_en = "Weight: " ~ bw ~ " (baseline reliability)" %}
+              {% set w_zh = "Weight 分布粗細=" ~ bw ~ "：越接近1越精準；0.7 表示可信度較保守" %}
+            {% endif %}
+
+            {% set a_en = "Adjust: N/A" %}
+            {% set a_zh = "Adjust：資料不足" %}
+            {% if adj is not none %}
+              {% set a_en = "Adjust: " ~ adj ~ " (final_score conservative factor)" %}
+              {% set a_zh = "Adjust 折減係數=" ~ adj ~ "：geo 可信度使總分小幅保守調降（避免腰斬）" %}
+            {% endif %}
+
+            <div class="mb-4" style="padding:14px 14px;border:1px solid #333;border-radius:12px;background:#111;">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="text-warning" style="font-weight:900;">📍 GEO Gate — 判讀說明 (EN + 中文)</div>
+                <div class="text-muted" style="font-size:0.85rem;">
+                  {% if km is not none %}Top5 W-Avg KM: {{ km }}{% endif %}
+                  {% if km_min is not none and km_avg is not none %}
+                    | min {{ km_min|round(1) }} km | avg {{ km_avg|round(1) }} km
+                  {% endif %}
+                  {% if gtag %} | tag: {{ gtag }}{% endif %}
+                </div>
+              </div>
+
+              <div style="margin-top:6px;color:#cfcfcf;font-size:0.9rem;">
+                {{ geo_one_liner }}
+              </div>
+
+              <div style="margin-top:10px;">
+                <div style="font-weight:800;color:#eaeaea;">{{ grade_en }}</div>
+                <div style="color:#cfcfcf;">{{ grade_zh }}</div>
+              </div>
+
+              <hr style="border-color:#2a2a2a; margin:12px 0;"/>
+
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ z_en }}</div>
+                    <div style="color:#cfcfcf;">{{ z_zh }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ aff_en }}</div>
+                    <div style="color:#cfcfcf;">{{ aff_zh }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ ref_en }}</div>
+                    <div style="color:#cfcfcf;">{{ ref_zh }}</div>
+                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
+                      {{ w_en }}<br/>
+                      {{ a_en }}
+                    </div>
+                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
+                      {{ w_zh }}<br/>
+                      {{ a_zh }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {# ========= TradingView Smart Money Radar ========= #}
             <h6 class="text-info mt-4 mb-3">📡 TradingView 主力行為偵測 Smart Money Radar</h6>
-
             <div class="row mb-4">
               <div class="col-md-3">
                 <div class="metric-card">

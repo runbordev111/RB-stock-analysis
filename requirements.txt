@@ -1,6 +1,19 @@
-# 一次裝好所有裝備
+# 重裝
+# deactivate
+# Remove-Item -Recurse -Force .\venv
+# Test-Path .\venv
+# python -m venv venv
+# .\venv\Scripts\Activate.ps1
+# python -c "import sys; print(sys.executable); print(sys.version)"
+# python -m ensurepip --upgrade
+# python -m pip -V
+# python -m pip install -U pip setuptools wheel
+# python -m pip install -r .\requirements.txt --no-cache-dir --force-reinstall
+# python -c "import requests, urllib3, charset_normalizer; print('ok', requests.__version__, urllib3.__version__)"
+
 # pip install --upgrade pip
 # python -m pip install --upgrade -r requirements.txt
+
 
 # 基礎 HTTP / JSON / 環境變數
 requests

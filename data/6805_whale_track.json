@@ -619,6 +619,13 @@
     "delta_major_flow_5": 471.9,
     "top15_buy_sum_5": 1544.5,
     "top15_sell_sum_5": 1072.6,
+    "pressure_ratio_20d": 0.615,
+    "net_pressure_20d": 0.2299,
+    "pressure_ratio_5d": 0.5902,
+    "net_pressure_5d": 0.1803,
+    "top15_buy_stability_20d": 0.1417,
+    "top15_buy_stability_10d": 0.1125,
+    "top15_buy_avg_size_10d": 15.0,
     "turning_points": {
       "foreign_buy_switch": 1,
       "local_buy_switch": 0,
@@ -756,21 +763,24 @@
         "km_to_hq": 7.2
       }
     ],
-    "geo_zscore": -0.71,
+    "geo_zscore": -0.63,
+    "geo_baseline_mu_km": 9.06,
+    "geo_baseline_sd_km": 2.33,
+    "geo_baseline_n": 271,
+    "geo_baseline_tag": "baseline_org_city:local_台北市",
+    "geo_baseline_weight": 1.0,
     "geo_grade": "A",
-    "geo_tag": "geo_near_core",
-    "geo_baseline_tag": "",
-    "geo_baseline_weight": 0.7,
-    "final_score": 54.7,
-    "final_grade": "C",
+    "geo_tag": "geo_near_core|baseline_org_city:local_台北市",
+    "final_score": 64.4,
+    "final_grade": "B",
     "weights": {
       "whale": 0.6,
       "regime": 0.4
     },
-    "geo_adjust": 0.85
+    "geo_adjust": 1.0
   },
   "stock_id": "6805",
   "stock_name": "富世達",
   "probe_date": "2026-02-11",
-  "last_update": "2026-02-15 20:25"
+  "last_update": "2026-02-18 21:40"
 }

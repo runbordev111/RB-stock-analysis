@@ -657,6 +657,80 @@ def analyze_whale_trajectory(
     # ✅ 這段直接貼在 signals.update(geo_pack) 後面（取代你原本那整段 Geo Gate try 區塊）
     signals.update(geo_pack)
 
+    # --- fallback: build geo_top5_detail / wavg_km / affinity if missing ---
+    try:
+        from core.geo_utils import haversine_km
+
+        # 1) 先拿 top_buy_15（你已確認有 15）
+        top_buy = signals.get("top_buy_15") or []
+
+        # 2) 若 compute_geo_topn_features 沒產出 detail，就自己組
+        need_detail = (not isinstance(signals.get("geo_top5_detail"), list)) or (len(signals.get("geo_top5_detail") or []) == 0)
+
+        if need_detail:
+            geo_top5 = []
+
+            # 先挑「有座標」的分點，補滿 5 個
+            for r in top_buy:
+                if not isinstance(r, dict):
+                    continue
+                bid = str(r.get("broker_id", "")).strip()
+                if not bid:
+                    continue
+
+                meta = broker_map.get(bid) or {}
+                blat = meta.get("lat", None)
+                blon = meta.get("lon", None)
+
+                # 沒座標就跳過（否則後面 km 全 None）
+                if blat is None or blon is None:
+                    continue
+
+                city = str(meta.get("city", "") or "").strip()
+                orgt = str(meta.get("broker_org_type", "") or "").strip()
+
+                km = None
+                try:
+                    if hq_lat is not None and hq_lon is not None:
+                        km = float(haversine_km(float(hq_lat), float(hq_lon), float(blat), float(blon)))
+                except Exception:
+                    km = None
+
+                geo_top5.append({
+                    "broker_id": bid,
+                    "broker_name": r.get("broker_name") or meta.get("broker_name") or "",
+                    "net_lot": float(r.get("net_lot", 0) or 0),
+                    "city": city,
+                    "broker_org_type": orgt,
+                    "lat": blat,
+                    "lon": blon,
+                    "km_to_hq": km,
+                })
+
+                if len(geo_top5) >= 5:
+                    break
+
+            signals["geo_top5_detail"] = geo_top5
+
+        # 3) 補 wavg_km（最小可用：平均；要加權再升級）
+        if signals.get("geo_top5_wavg_km") is None:
+            d = signals.get("geo_top5_detail") or []
+            kms = [x.get("km_to_hq") for x in d if isinstance(x, dict) and x.get("km_to_hq") is not None]
+            if kms:
+                signals["geo_top5_wavg_km"] = round(sum(kms) / len(kms), 2)
+
+        # 4) 補 affinity（最小可用：Top5 同城市佔比 * 100）
+        if signals.get("geo_affinity_score") is None:
+            d = signals.get("geo_top5_detail") or []
+            cities = [str(x.get("city") or "").strip() for x in d if isinstance(x, dict) and str(x.get("city") or "").strip()]
+            if cities:
+                major = max(set(cities), key=cities.count)
+                signals["geo_affinity_score"] = round(100.0 * (cities.count(major) / len(cities)), 1)
+
+    except Exception:
+        # 不讓 pipeline 因 geo fallback 失敗而中斷
+        pass
+
     # -------------------------
     # Geo Baseline 精準化 + City Normalize + ZScore 重算 + Grade/Tag（單一版本，避免覆寫）
     # baseline 優先順序：
