@@ -202,6 +202,80 @@
               </div>
             </div>
 
+            {% set ms = sig.monitor_state if sig.monitor_state is defined else 'NEUTRAL' %}
+            {% set mr = sig.monitor_reasons if sig.monitor_reasons is defined else [] %}
+            {% set ms_color = '#999' %}
+            {% if ms == 'ACCUMULATION' %}{% set ms_color = '#2ecc71' %}{% endif %}
+            {% if ms == 'MARKUP' %}{% set ms_color = '#f1c40f' %}{% endif %}
+            {% if ms == 'DISTRIBUTION' %}{% set ms_color = '#e74c3c' %}{% endif %}
+
+            {% set st10 = sig.top15_buy_stability_10d if sig.top15_buy_stability_10d is defined else None %}
+            {% set pr5  = sig.pressure_ratio_5d if sig.pressure_ratio_5d is defined else None %}
+            {% set ez   = sig.enhanced if sig.enhanced is defined else {} %}
+            {% set coh_p = ez.coherence_persistence_20d if ez and ez.coherence_persistence_20d is defined else None %}
+
+            <div class="row mb-4 g-3">
+              <div class="col-md-12">
+                <div class="metric-card" style="text-align:left; border:1px solid #333; background:#161616;">
+                  <div class="d-flex justify-content-between align-items-start flex-wrap" style="gap:12px;">
+                    <div>
+                      <div class="metric-label">📌 Whale Trend Monitor</div>
+                      <div style="font-size:1.55rem; font-weight:900; color: {{ ms_color }};">
+                        {{ ms }}
+                      </div>
+                      <div style="margin-top:6px;">
+                        {% if mr and (mr is sequence) %}
+                          {% for r in mr[:6] %}
+                            <span class="tag-pill">{{ r }}</span>
+                          {% endfor %}
+                        {% else %}
+                          <span class="tag-pill">no_reasons</span>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap" style="gap:10px; align-items:center;">
+                      <div class="tag-pill">
+                        Stability(10D):
+                        <b style="color:#f1c40f;">
+                          {% if st10 is not none %}{{ (st10*100)|round(1) }}%{% else %}-{% endif %}
+                        </b>
+                      </div>
+
+                      <div class="tag-pill">
+                        Pressure(5D):
+                        <b style="color:#f1c40f;">
+                          {% if pr5 is not none %}{{ pr5|round(3) }}{% else %}-{% endif %}
+                        </b>
+                      </div>
+
+                      <div class="tag-pill">
+                        Coh Persist(20D):
+                        <b style="color:#f1c40f;">
+                          {% if coh_p is not none %}{{ (coh_p*100)|round(1) }}%{% else %}-{% endif %}
+                        </b>
+                      </div>
+
+                      {% set dr = sig.dist_risk_flag if sig.dist_risk_flag is defined else 0 %}
+                      <div class="tag-pill" style="border-color: {{ '#e74c3c' if dr|int==1 else '#444' }};">
+                        DistRisk:
+                        <b style="color: {{ '#e74c3c' if dr|int==1 else '#2ecc71' }};">
+                          {{ 'ON' if dr|int==1 else 'OFF' }}
+                        </b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="margin-top:10px; color:#b8b8b8; font-size:0.9rem; line-height:1.4;">
+                    <span style="color:#2ecc71;">ACCUMULATION</span>=同一批人持續累積｜
+                    <span style="color:#f1c40f;">MARKUP</span>=價格行為確認｜
+                    <span style="color:#e74c3c;">DISTRIBUTION</span>=派發/退潮警戒｜
+                    <span style="color:#999;">NEUTRAL</span>=觀察中
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {# ========= KPI：集中度 & 主力走向 ========= #}
             {% set kpi_c20 = sig.concentration_20d if sig.concentration_20d is defined else 0 %}
             {% set kpi_c5  = sig.concentration_5d  if sig.concentration_5d  is defined else 0 %}
@@ -355,128 +429,6 @@
               {% set a_zh = "Adjust 折減係數=" ~ adj ~ "：geo 可信度使總分小幅保守調降（避免腰斬）" %}
             {% endif %}
 
-            <div class="mb-4" style="padding:14px 14px;border:1px solid #333;border-radius:12px;background:#111;">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="text-warning" style="font-weight:900;">📍 GEO Gate — 判讀說明 (EN + 中文)</div>
-                <div class="text-muted" style="font-size:0.85rem;">
-                  {% if km is not none %}Top5 W-Avg KM: {{ km }}{% endif %}
-                  {% if km_min is not none and km_avg is not none %}
-                    | min {{ km_min|round(1) }} km | avg {{ km_avg|round(1) }} km
-                  {% endif %}
-                  {% if gtag %} | tag: {{ gtag }}{% endif %}
-                </div>
-              </div>
-
-              <div style="margin-top:6px;color:#cfcfcf;font-size:0.9rem;">
-                {{ geo_one_liner }}
-              </div>
-
-              <div style="margin-top:10px;">
-                <div style="font-weight:800;color:#eaeaea;">{{ grade_en }}</div>
-                <div style="color:#cfcfcf;">{{ grade_zh }}</div>
-              </div>
-
-              <hr style="border-color:#2a2a2a; margin:12px 0;"/>
-
-              <div class="row g-3">
-                <div class="col-md-4">
-                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
-                    <div style="font-weight:800;color:#eaeaea;">{{ z_en }}</div>
-                    <div style="color:#cfcfcf;">{{ z_zh }}</div>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
-                    <div style="font-weight:800;color:#eaeaea;">{{ aff_en }}</div>
-                    <div style="color:#cfcfcf;">{{ aff_zh }}</div>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
-                    <div style="font-weight:800;color:#eaeaea;">{{ ref_en }}</div>
-                    <div style="color:#cfcfcf;">{{ ref_zh }}</div>
-                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
-                      {{ w_en }}<br/>
-                      {{ a_en }}
-                    </div>
-                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
-                      {{ w_zh }}<br/>
-                      {{ a_zh }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {# ========= TradingView Smart Money Radar ========= #}
-            <h6 class="text-info mt-4 mb-3">📡 TradingView 主力行為偵測 Smart Money Radar</h6>
-            <div class="row mb-4">
-              <div class="col-md-3">
-                <div class="metric-card">
-                  <div class="metric-label">TV Score (>3才執行交易)</div>
-                  <div class="metric-value">{{ sig.tv_score if sig.tv_score is defined else 0 }}</div>
-                  <div class="metric-label mt-1 text-warning">
-                    等級：{{ sig.tv_grade if sig.tv_grade is defined else 'weak' }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="col-md-9">
-                <div class="metric-card" style="text-align:left;">
-                  <div class="metric-label mb-2">五大訊號（1 = 成立）</div>
-
-                  <div class="d-flex flex-wrap" style="gap:10px;">
-                    <div class="tag-pill">VWAP 主力成本線：
-                      <span style="color:{{ 'lime' if sig.sig_vwap else '#999' }}">
-                        {{ sig.sig_vwap if sig.sig_vwap is defined else 0 }}
-                      </span>
-                    </div>
-
-                    <div class="tag-pill">OBV/A-D 吸籌偵測：
-                      <span style="color:{{ 'lime' if sig.sig_accumulation else '#999' }}">
-                        {{ sig.sig_accumulation if sig.sig_accumulation is defined else 0 }}
-                      </span>
-                    </div>
-
-                    <div class="tag-pill">爆量換手：
-                      <span style="color:{{ 'lime' if sig.sig_rotation else '#999' }}">
-                        {{ sig.sig_rotation if sig.sig_rotation is defined else 0 }}
-                      </span>
-                    </div>
-
-                    <div class="tag-pill">HVN 量價關鍵區：
-                      <span style="color:{{ 'lime' if sig.sig_profile_zone else '#999' }}">
-                        {{ sig.sig_profile_zone if sig.sig_profile_zone is defined else 0 }}
-                      </span>
-                    </div>
-
-                    <div class="tag-pill">BOS 結構突破：
-                      <span style="color:{{ 'lime' if sig.sig_structure_break else '#999' }}">
-                        {{ sig.sig_structure_break if sig.sig_structure_break is defined else 0 }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {# ========= 新增區塊：主力成本帶 Cost Zone ========= #}
-            <div class="d-flex justify-content-between align-items-end mt-4 mb-2">
-                <h6 class="text-info mb-0">🏷 主力成本帶（Top6 Cost Zone）</h6>
-                {% if sig.enhanced and sig.enhanced.cost_zone_status %}
-                    {% set status = sig.enhanced.cost_zone_status %}
-                    <span class="status-pill {{ 'status-above' if status=='above_zone' else ('status-inside' if status=='inside_zone' else 'status-below') }}">
-                        {{ '強勢突破' if status=='above_zone' else ('成本區洗盤' if status=='inside_zone' else '破位警戒') }}
-                    </span>
-                {% endif %}
-            </div>
-            <div class="cost-zone-container">
-                <div class="chart-container-mini" style="height: 120px;">
-                    <canvas id="costZoneChart-{{ stock.id }}"></canvas>
-                </div>
-            </div>
-
-            {# ========= KPI：主力分數 & NetBuy ========= #}
             {# ========= Geo KPI：分點距離/校正 ========= #}
             <h6 class="text-info mt-4 mb-3">🧭 Geo Gate（分點↔公司HQ）</h6>
 
@@ -556,7 +508,138 @@
               </div>
             </div>
             {% endif %}
+            
+            <div class="mb-4" style="padding:14px 14px;border:1px solid #333;border-radius:12px;background:#111;">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="text-warning" style="font-weight:900;">📍 GEO Gate — 判讀說明 (EN + 中文)</div>
+                <div class="text-secondary" style="font-size:0.9rem; color:#cfcfcf !important;">
+                  {% if km is not none %}Top5 W-Avg KM: {{ km }}{% endif %}
+                  {% if km_min is not none and km_avg is not none %}
+                    | min {{ km_min|round(1) }} km | avg {{ km_avg|round(1) }} km
+                  {% endif %}
+                  {% if gtag %} | tag: {{ gtag }}{% endif %}
+                </div>
+              </div>
 
+              <div style="margin-top:6px;color:#cfcfcf;font-size:0.9rem;">
+                {{ geo_one_liner }}
+              </div>
+
+              <div style="margin-top:10px;">
+                <div style="font-weight:800;color:#eaeaea;">{{ grade_en }}</div>
+                <div style="color:#cfcfcf;">{{ grade_zh }}</div>
+              </div>
+
+              <hr style="border-color:#2a2a2a; margin:12px 0;"/>
+
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ z_en }}</div>
+                    <div style="color:#cfcfcf;">{{ z_zh }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ aff_en }}</div>
+                    <div style="color:#cfcfcf;">{{ aff_zh }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div style="padding:10px;border:1px solid #2a2a2a;border-radius:10px;background:#0f0f0f;">
+                    <div style="font-weight:800;color:#eaeaea;">{{ ref_en }}</div>
+                    <div style="color:#cfcfcf;">{{ ref_zh }}</div>
+                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
+                      {{ w_en }}<br/>
+                      {{ a_en }}
+                    </div>
+                    <div style="margin-top:6px;font-size:0.85rem; color:#b8b8b8;">
+                      {{ w_zh }}<br/>
+                      {{ a_zh }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {# ========= 新增區塊：主力成本帶 Cost Zone ========= #}
+            <div class="d-flex justify-content-between align-items-end mt-4 mb-2">
+                <h6 class="text-info mb-0">🏷 主力成本帶（Top6 Cost Zone）</h6>
+                {% if sig.enhanced and sig.enhanced.cost_zone_status %}
+                    {% set status = sig.enhanced.cost_zone_status %}
+                    <span class="status-pill {{ 'status-above' if status=='above_zone' else ('status-inside' if status=='inside_zone' else 'status-below') }}">
+                        {{ '強勢突破' if status=='above_zone' else ('成本區洗盤' if status=='inside_zone' else '破位警戒') }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="cost-zone-container">
+              <div class="chart-container-mini" style="height: 120px;">
+                <canvas id="costZoneChart-{{ stock.id }}"></canvas>
+              </div>
+
+              {% set ez = sig.enhanced if sig.enhanced is defined else {} %}
+              <div class="mt-2" style="font-size:0.85rem; color:#cfcfcf;">
+                <span class="tag-pill">Touch(20D): {{ ez.cz_touch_20d if ez and ez.cz_touch_20d is defined else '-' }}</span>
+                <span class="tag-pill">Break↑(20D): {{ ez.cz_break_up_20d if ez and ez.cz_break_up_20d is defined else '-' }}</span>
+                <span class="tag-pill">Break↓(20D): {{ ez.cz_break_dn_20d if ez and ez.cz_break_dn_20d is defined else '-' }}</span>
+                <span class="tag-pill">Defense(20D): {{ (ez.cz_defense_rate_20d*100)|round(1) ~ '%' if ez and ez.cz_defense_rate_20d is defined and ez.cz_defense_rate_20d is not none else '-' }}</span>
+              </div>
+            </div>
+
+            {# ========= TradingView Smart Money Radar ========= #}
+            <h6 class="text-info mt-4 mb-3">📡 TradingView 主力行為偵測 Smart Money Radar</h6>
+            <div class="row mb-4">
+              <div class="col-md-3">
+                <div class="metric-card">
+                  <div class="metric-label">TV Score (>3才執行交易)</div>
+                  <div class="metric-value">{{ sig.tv_score if sig.tv_score is defined else 0 }}</div>
+                  <div class="metric-label mt-1 text-warning">
+                    等級：{{ sig.tv_grade if sig.tv_grade is defined else 'weak' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-9">
+                <div class="metric-card" style="text-align:left;">
+                  <div class="metric-label mb-2">五大訊號（1 = 成立）</div>
+
+                  <div class="d-flex flex-wrap" style="gap:10px;">
+                    <div class="tag-pill">VWAP 主力成本線：
+                      <span style="color:{{ 'lime' if sig.sig_vwap else '#999' }}">
+                        {{ sig.sig_vwap if sig.sig_vwap is defined else 0 }}
+                      </span>
+                    </div>
+
+                    <div class="tag-pill">OBV/A-D 吸籌偵測：
+                      <span style="color:{{ 'lime' if sig.sig_accumulation else '#999' }}">
+                        {{ sig.sig_accumulation if sig.sig_accumulation is defined else 0 }}
+                      </span>
+                    </div>
+
+                    <div class="tag-pill">爆量換手：
+                      <span style="color:{{ 'lime' if sig.sig_rotation else '#999' }}">
+                        {{ sig.sig_rotation if sig.sig_rotation is defined else 0 }}
+                      </span>
+                    </div>
+
+                    <div class="tag-pill">HVN 量價關鍵區：
+                      <span style="color:{{ 'lime' if sig.sig_profile_zone else '#999' }}">
+                        {{ sig.sig_profile_zone if sig.sig_profile_zone is defined else 0 }}
+                      </span>
+                    </div>
+
+                    <div class="tag-pill">BOS 結構突破：
+                      <span style="color:{{ 'lime' if sig.sig_structure_break else '#999' }}">
+                        {{ sig.sig_structure_break if sig.sig_structure_break is defined else 0 }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {# ========= KPI：主力分數 & NetBuy ========= #}
             <!-- KPI Row 1：四張卡 -->
             <div class="row mb-4 g-3">
               <div class="col-md-3">
@@ -746,6 +829,36 @@
               </div>
             </div>
 
+            <div class="row mb-4 g-3">
+              <div class="col-md-6">
+                {% set dr = sig.dist_risk_flag if sig.dist_risk_flag is defined else 0 %}
+                <div class="metric-card" style="text-align:left;">
+                  <div class="metric-label">🧨 Distribution Risk（派發/倒貨風險）</div>
+                  <div class="metric-value" style="font-size:1.35rem; color: {{ '#e74c3c' if dr|int==1 else '#2ecc71' }};">
+                    {{ 'ON' if dr|int==1 else 'OFF' }}
+                  </div>
+                  <div class="metric-label">
+                    buy_hhi_20d={{ sig.buy_hhi_20d if sig.buy_hhi_20d is defined else '-' }}
+                    | sell_hhi_20d={{ sig.sell_hhi_20d if sig.sell_hhi_20d is defined else '-' }}
+                  </div>
+                  <div class="metric-label text-warning" style="margin-top:6px;">
+                    {{ sig.dist_risk_tag if sig.dist_risk_tag is defined else '' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <div class="metric-card" style="text-align:left;">
+                  <div class="metric-label">📌 解讀建議</div>
+                  <div style="color:#cfcfcf; font-size:0.9rem; line-height:1.5;">
+                    <div>• buy_hhi 高 + net5 轉弱：可能「集中買盤退潮」</div>
+                    <div>• sell_hhi 高 + net1 轉負：賣壓集中，需提高停損紀律</div>
+                    <div>• 建議與成本帶 Defense、Breakout 一起做交易開關</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {# ========= Breadth KPI ========= #}
             <div class="row mb-4">
               <div class="col-md-3">
@@ -779,6 +892,51 @@
             <div class="chart-container-mini">
               <canvas id="breadthTrend-{{ stock.id }}"></canvas>
             </div>
+
+            {% set ez = sig.enhanced if sig.enhanced is defined else {} %}
+            <h6 class="text-info mt-3 mb-3">👥 主力群聚買超趨勢（Coherence Trend 20D）</h6>
+
+            <div class="row g-3 mb-4">
+              <div class="col-md-8">
+                <div class="chart-container-mini" style="height: 240px;">
+                  <canvas id="coherenceTrend-{{ stock.id }}"></canvas>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <div class="row g-3">
+                  <div class="col-12">
+                    <div class="metric-card">
+                      <div class="metric-label">Coherence Today</div>
+                      <div class="metric-value">
+                        {{ ez.coherence_today if ez and ez.coherence_today is defined else '-' }}
+                      </div>
+                      <div class="metric-label">>1.2 表示群聚偏強</div>
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="metric-card">
+                      <div class="metric-label">Coherence Slope (5D)</div>
+                      <div class="metric-value" style="font-size:1.35rem;">
+                        {{ ez.coherence_slope_5d if ez and ez.coherence_slope_5d is defined else '-' }}
+                      </div>
+                      <div class="metric-label">斜率 > 0 = 增強中</div>
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="metric-card">
+                      <div class="metric-label">Persistence (20D)</div>
+                      <div class="metric-value" style="font-size:1.35rem;">
+                        {{ (ez.coherence_persistence_20d*100)|round(1) ~ '%' if ez and ez.coherence_persistence_20d is defined and ez.coherence_persistence_20d is not none else '-' }}
+                      </div>
+                      <div class="metric-label">coh ≥ 1.2 占比</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>            
 
             {# ========= 外資/本土 主力 5 日累計 ========= #}
             {% set f5 = (sig.foreign_net_5d if sig.foreign_net_5d is defined else 0) %}
@@ -955,12 +1113,6 @@
                   {% endif %}
                 </tbody>
               </table>
-            </div>
-
-            {# ========= 新增 Coherence Trend 圖 ========= #}
-            <h6 class="text-info mt-4 mb-3">👥 主力群聚買超趨勢（Coherence Trend）</h6>
-            <div class="chart-container-mini">
-              <canvas id="coherenceTrend-{{ stock.id }}"></canvas>
             </div>
 
           </div>
@@ -1198,6 +1350,51 @@
             });
           }
 
+          // ========= 3b) Coherence trend chart =========
+          const cohCanvas = document.getElementById('coherenceTrend-{{ stock.id }}');
+          if (cohCanvas) {
+            const labels20 = (sig && sig.labels_20d) ? sig.labels_20d : [];
+            const enhanced = (sig && sig.enhanced) ? sig.enhanced : {};
+            const cohSeries = (enhanced && Array.isArray(enhanced.coherence_series_20d)) ? enhanced.coherence_series_20d : [];
+
+            const ctx = cohCanvas.getContext('2d');
+            if (window.__coherenceCharts === undefined) window.__coherenceCharts = {};
+            destroyIfExists(window.__coherenceCharts, '{{ stock.id }}');
+
+            // 若資料不足，顯示文字
+            if (!cohSeries || cohSeries.length === 0 || labels20.length === 0) {
+              const p = cohCanvas.parentElement;
+              if (p) p.innerHTML = `<div class="text-muted" style="font-size:0.9rem;">Coherence 暫無資料（需 enhanced.coherence_series_20d）</div>`;
+            } else {
+              // 參考線：1.2（群聚偏強）
+              const refLine = labels20.map(_ => 1.2);
+
+              window.__coherenceCharts['{{ stock.id }}'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: labels20,
+                  datasets: [
+                    { label: 'Coherence', data: cohSeries, borderColor: '#f1c40f', backgroundColor: '#f1c40f', borderWidth: 3, tension: 0.2, pointRadius: 2 },
+                    { label: 'Threshold(1.2)', data: refLine, borderColor: '#66b2ff', borderWidth: 1, borderDash: [6, 6], tension: 0, pointRadius: 0 }
+                  ]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: { mode: 'index', intersect: false },
+                  scales: {
+                    x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                    y: { ticks: { color: '#aaa' }, grid: { color: '#333' }, suggestedMin: 0, suggestedMax: 3 }
+                  },
+                  plugins: {
+                    legend: { position: 'bottom', labels: { color: '#eee', boxWidth: 12 } },
+                    tooltip: { mode: 'index', intersect: false }
+                  }
+                }
+              });
+            }
+          }
+
           // ========= 4) Whale Strength Radar =========
           const wrCanvas = document.getElementById('whaleRadar-{{ stock.id }}');
           if (wrCanvas) {
@@ -1249,8 +1446,6 @@
                       color: '#eee',
                       font: { size: 14 }   // ✅ 放大關鍵：字會看得到
                     },
-                    grid: { color: '#444' },
-                    angleLines: { color: '#333' }
                   }
                 }
               }
@@ -1268,7 +1463,7 @@
             const closeLast= Number(enhanced.close_last?? 0);
 
             // 沒資料：不 return（避免中止整個 script），改成顯示文字
-            if (!costLow || !costHigh || costHigh <= costLow || !closeLast) {
+              if (!Number.isFinite(costLow) || !Number.isFinite(costHigh) || costHigh <= costLow || !Number.isFinite(closeLast)) {
               const p = czCanvas.parentElement;
               if (p) {
                 p.innerHTML = `<div class="text-muted" style="font-size:0.9rem;">Cost Zone 暫無資料（需後端提供 cost_low / cost_high / close_last）</div>`;
@@ -1301,46 +1496,6 @@
                 }
               });
             }
-          }
-
-          // ========= 6) Coherence Trend chart =========
-          const cohCanvas = document.getElementById('coherenceTrend-{{ stock.id }}');
-          if (cohCanvas) {
-            const ctxCT = cohCanvas.getContext('2d');
-
-            const labels20 = (sig && sig.labels_20d) ? sig.labels_20d : [];
-            const buySeries = (sig && sig.buy_count_series_20d) ? sig.buy_count_series_20d : [];
-            const sellSeries = (sig && sig.sell_count_series_20d) ? sig.sell_count_series_20d : [];
-            const enhanced = (sig && sig.enhanced) ? sig.enhanced : {};
-            const cohToday = Number(enhanced.coherence_today ?? 0);
-
-            // show today's coherence only on last point (marker)
-            const cohSeries = labels20.map((_, idx) => idx === labels20.length - 1 ? cohToday : null);
-
-            if (window.__cohCharts === undefined) window.__cohCharts = {};
-            destroyIfExists(window.__cohCharts, '{{ stock.id }}');
-
-            window.__cohCharts['{{ stock.id }}'] = new Chart(ctxCT, {
-              type: 'line',
-              data: {
-                labels: labels20,
-                datasets: [
-                  { label: '買超家數', data: buySeries, borderColor: '#ff4444', borderWidth: 2, tension: 0.2, pointRadius: 2 },
-                  { label: '賣超家數', data: sellSeries, borderColor: '#66b2ff', borderWidth: 2, tension: 0.2, pointRadius: 2 },
-                  { label: 'Coherence(今日)', data: cohSeries, borderColor: '#f1c40f', borderWidth: 3, tension: 0, pointRadius: 5 }
-                ]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                  x: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
-                  y: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
-                },
-                plugins: { legend: { position: 'bottom', labels: { color: '#eee' } } }
-              }
-            });
           }
         })();          
       </script>

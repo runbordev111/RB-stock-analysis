@@ -14,6 +14,6 @@ if not exist "venv\Scripts\activate" (
 :: 啟動程序：直接啟動並執行 python，不需要每次都 build
 echo start to mining data from FinMind...
 call .\venv\Scripts\activate
-python .\scraper_chip.py --stock_id 6805 --days 20 --debug_tv
+python .\scraper_chip.py --stock_id 3105 --days 30 --debug_tv
 
 echo 🚀 RB TradingCentor Started!
