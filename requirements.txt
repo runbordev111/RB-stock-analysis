@@ -11,7 +11,7 @@
 # python -m pip install -r .\requirements.txt --no-cache-dir --force-reinstall
 # python -c "import requests, urllib3, charset_normalizer; print('ok', requests.__version__, urllib3.__version__)"
 
-# pip install --upgrade pip
+# python.exe -m pip install --upgrade pip
 # python -m pip install --upgrade -r requirements.txt
 
 

@@ -692,37 +692,83 @@
         "短期加速"
       ],
       "values": [
-        100,
-        81,
-        27,
-        24,
-        18
+        44.2,
+        50.0,
+        36.4,
+        69.8,
+        50.0
       ],
-      "raw": {
-        "strength": 1.0,
-        "direction": 0.615953769095465,
-        "breadth": -0.45324,
-        "align": -0.517500763070525,
-        "acc": -0.6318349743187759
+      "debug": {
+        "c20": 44.19,
+        "net1": 0.0,
+        "net5": 0.0,
+        "net20": 26.0,
+        "scale": 10.0,
+        "breadth_ratio_5d": 0.3645,
+        "foreign_5d": 1906423.0,
+        "local_5d": -2044719.0,
+        "same_sign": 0,
+        "avg5": 0.0,
+        "den": 5.0
       }
     },
     "enhanced": {
       "coherence_today": 0.45,
       "buy_cnt_today": 165,
       "avg_buy_cnt_20d": 370.0,
+      "coherence_series_20d": [
+        1.01,
+        1.71,
+        1.66,
+        0.91,
+        0.23,
+        0.44,
+        1.06,
+        0.28,
+        1.36,
+        0.69,
+        1.41,
+        0.67,
+        0.23,
+        0.81,
+        0.97,
+        1.37,
+        0.96,
+        1.39,
+        1.72,
+        0.65,
+        1.51,
+        0.84,
+        1.97,
+        0.3,
+        1.19,
+        0.94,
+        1.91,
+        1.02,
+        0.36,
+        0.45
+      ],
+      "coherence_slope_5d": -0.253,
+      "coherence_persistence_20d": 0.333,
+      "coherence_max_20d": 1.97,
       "cost_low": 1677.71,
       "cost_high": 1745.93,
       "close_last": 1945.0,
       "cost_deviation": 0.159,
       "cost_zone_status": "above_zone",
+      "cz_touch_20d": 2,
+      "cz_break_up_20d": 3,
+      "cz_break_dn_20d": 0,
+      "cz_defense_win_20d": 3,
+      "cz_defense_rate_20d": 0.231,
       "streak_strength": 0.0
     },
-    "regime_score": 95,
+    "regime_score": 80,
     "regime_trend": "bull",
     "regime_tags": [
       "ma20>ma60",
       "ma60_up",
-      "break_high_120d",
+      "inside_120d_range",
       "atr_low"
     ],
     "sig_vwap": 0,
@@ -820,7 +866,17 @@
     "geo_baseline_weight": 0.7,
     "geo_grade": "D",
     "geo_tag": "geo_far|baseline_all",
-    "final_score": 67.5,
+    "buy_hhi_20d": 0.1216,
+    "buy_entropy_20d": 2.3281,
+    "sell_hhi_20d": 0.1187,
+    "sell_entropy_20d": 2.4141,
+    "dist_risk_flag": 0,
+    "dist_risk_tag": "",
+    "monitor_state": "DISTRIBUTION",
+    "monitor_reasons": [
+      "coherence_fading"
+    ],
+    "final_score": 62.4,
     "final_grade": "B",
     "weights": {
       "whale": 0.6,
@@ -831,5 +887,5 @@
   "stock_id": "2454",
   "stock_name": "聯發科",
   "probe_date": "2026-02-26",
-  "last_update": "2026-03-01 23:31"
+  "last_update": "2026-03-02 18:08"
 }

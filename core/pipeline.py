@@ -972,7 +972,7 @@ def analyze_whale_trajectory(
     signals["dist_risk_flag"] = int(dist_flag)
     signals["dist_risk_tag"] = "|".join(reasons) if reasons else ""
 
-    # === Whale Trend Monitor (long-term) ===
+    # === Whale Trend Monitor (long-term) - 5 states ===
     ez = (signals.get("enhanced") or {})
     st10 = signals.get("top15_buy_stability_10d")
     pr5  = signals.get("pressure_ratio_5d")
@@ -986,52 +986,62 @@ def analyze_whale_trajectory(
     breakout = int((signals.get("validation") or {}).get("breakout_flag", 0) or 0)
     tv_score = float(signals.get("tv_score", 0) or 0)
 
-    def _is_num(x):
+    def _to_float(x):
         try:
-            float(x)
-            return True
+            return float(x)
         except Exception:
-            return False
+            return None
 
-    # normalize missing
-    st10_v = float(st10) if _is_num(st10) else None
-    pr5_v  = float(pr5)  if _is_num(pr5)  else None
-    coh_pv = float(coh_p) if _is_num(coh_p) else None
-    coh_sv = float(coh_s) if _is_num(coh_s) else None
-    coh_tv = float(coh_t) if _is_num(coh_t) else None
+    st10_v = _to_float(st10)
+    pr5_v  = _to_float(pr5)
+    coh_pv = _to_float(coh_p)
+    coh_sv = _to_float(coh_s)
+    coh_tv = _to_float(coh_t)
 
     state = "NEUTRAL"
     reasons = []
 
-    # Distribution first (risk overrides)
-    dist_hit = False
+    # ---- Signals ----
+    pressure_sell = (pr5_v is not None and pr5_v <= 0.45 and net5 <= 0)
+    coherence_fade = (coh_sv is not None and coh_tv is not None and coh_sv < 0 and coh_tv < 1.0)
+
+    acc_hit = (
+        (st10_v is not None and st10_v >= 0.35) and
+        (pr5_v is not None and pr5_v >= 0.55) and
+        (coh_pv is not None and coh_pv >= 0.25) and
+        (dist == 0)
+    )
+
+    mk_hit = ((breakout == 1) or (tv_score >= 3.0)) and (st10_v is not None and st10_v >= 0.25)
+
+    # ---- Priority order ----
+    # 1) DISTRIBUTION: 必須 dist_risk_on 才叫「派發」
     if dist == 1:
-        dist_hit = True
-        reasons.append("dist_risk_on")
-    if pr5_v is not None and pr5_v <= 0.45 and net5 <= 0:
-        dist_hit = True
-        reasons.append("pressure_sell_dominate")
-    if coh_sv is not None and coh_tv is not None and coh_sv < 0 and coh_tv < 1.0:
-        dist_hit = True
-        reasons.append("coherence_fading")
-
-    if dist_hit:
         state = "DISTRIBUTION"
-    else:
-        acc_hit = (
-            (st10_v is not None and st10_v >= 0.35) and
-            (pr5_v is not None and pr5_v >= 0.55) and
-            (coh_pv is not None and coh_pv >= 0.25) and
-            (dist == 0)
-        )
-        if acc_hit:
-            state = "ACCUMULATION"
-            reasons += ["stability_ok", "pressure_buy", "coherence_persist"]
+        reasons.append("dist_risk_on")
+        if pressure_sell: reasons.append("pressure_sell_dominate")
+        if coherence_fade: reasons.append("coherence_fading")
 
-        mk_hit = ((breakout == 1) or (tv_score >= 3.0)) and (st10_v is not None and st10_v >= 0.25)
-        if mk_hit:
-            state = "MARKUP"
-            reasons += ["price_confirmed"]
+    # 2) FADING: 無 dist_risk，但出現退潮訊號
+    elif pressure_sell or coherence_fade:
+        state = "FADING"
+        if pressure_sell: reasons.append("pressure_sell_dominate")
+        if coherence_fade: reasons.append("coherence_fading")
+
+    # 3) MARKUP: 價格行為確認（但沒有退潮/派發）
+    elif mk_hit:
+        state = "MARKUP"
+        reasons.append("price_confirmed")
+
+    # 4) ACCUMULATION: 同一批人持續累積（但未進入 markup）
+    elif acc_hit:
+        state = "ACCUMULATION"
+        reasons += ["stability_ok", "pressure_buy", "coherence_persist"]
+
+    # 5) NEUTRAL
+    else:
+        state = "NEUTRAL"
+        reasons.append("neutral")
 
     signals["monitor_state"] = state
     signals["monitor_reasons"] = reasons[:6]

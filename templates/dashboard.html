@@ -121,7 +121,7 @@
 
 <body>
 <div class="container py-5">
-  <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室V1.4.0</h1>
+  <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室V1.5.0</h1>
 
   <div class="row justify-content-center mb-3">
     <div class="col-lg-10">
@@ -203,11 +203,13 @@
             </div>
 
             {% set ms = sig.monitor_state if sig.monitor_state is defined else 'NEUTRAL' %}
+            {% set ms_zh = '觀察中' %}
             {% set mr = sig.monitor_reasons if sig.monitor_reasons is defined else [] %}
             {% set ms_color = '#999' %}
-            {% if ms == 'ACCUMULATION' %}{% set ms_color = '#2ecc71' %}{% endif %}
-            {% if ms == 'MARKUP' %}{% set ms_color = '#f1c40f' %}{% endif %}
-            {% if ms == 'DISTRIBUTION' %}{% set ms_color = '#e74c3c' %}{% endif %}
+            {% if ms == 'ACCUMULATION' %}{% set ms_zh = '吸籌/佈局期' %}{% endif %}
+            {% if ms == 'MARKUP' %}{% set ms_zh = '推升/趨勢延續' %}{% endif %}
+            {% if ms == 'FADING' %}{% set ms_zh = '退潮警戒' %}{% endif %}
+            {% if ms == 'DISTRIBUTION' %}{% set ms_zh = '派發警戒' %}{% endif %}
 
             {% set st10 = sig.top15_buy_stability_10d if sig.top15_buy_stability_10d is defined else None %}
             {% set pr5  = sig.pressure_ratio_5d if sig.pressure_ratio_5d is defined else None %}
@@ -220,37 +222,53 @@
                   <div class="d-flex justify-content-between align-items-start flex-wrap" style="gap:12px;">
                     <div>
                       <div class="metric-label">📌 Whale Trend Monitor</div>
-                      <div style="font-size:1.55rem; font-weight:900; color: {{ ms_color }};">
-                        {{ ms }}
+                      <div style="font-size:1.55rem; font-weight:900; color:
+                        {% if ms == 'DISTRIBUTION' %}#e74c3c
+                        {% elif ms == 'FADING' %}#f39c12
+                        {% elif ms == 'ACCUMULATION' %}#2ecc71
+                        {% elif ms == 'MARKUP' %}#f1c40f
+                        {% else %}#999{% endif %};">
+                        {{ ms_zh }}
                       </div>
                       <div style="margin-top:6px;">
                         {% if mr and (mr is sequence) %}
                           {% for r in mr[:6] %}
-                            <span class="tag-pill">{{ r }}</span>
+                            {% set r_zh = r %}
+                            {% if r == 'dist_risk_on' %}{% set r_zh = '派發風險ON（集中風險）' %}{% endif %}
+                            {% if r == 'pressure_sell_dominate' %}{% set r_zh = '賣壓主導（買方壓力偏弱）' %}{% endif %}
+                            {% if r == 'coherence_fading' %}{% set r_zh = '群聚退潮（同批人一致性下降）' %}{% endif %}
+                            {% if r == 'price_confirmed' %}{% set r_zh = '價格確認（突破/TV訊號成立）' %}{% endif %}
+                            {% if r == 'stability_ok' %}{% set r_zh = '名單穩定（同一批人延續）' %}{% endif %}
+                            {% if r == 'pressure_buy' %}{% set r_zh = '買盤主導（壓力比偏買）' %}{% endif %}
+                            {% if r == 'coherence_persist' %}{% set r_zh = '群聚持續（20日持久度夠）' %}{% endif %}
+                            {% if r == 'neutral' %}{% set r_zh = '訊號不足（觀察中）' %}{% endif %}
+                            {% if r == 'no_reasons' %}{% set r_zh = '無原因（尚未產生）' %}{% endif %}
+
+                            <span class="tag-pill">{{ r_zh }}</span>
                           {% endfor %}
                         {% else %}
-                          <span class="tag-pill">no_reasons</span>
+                          <span class="tag-pill">尚無原因</span>
                         {% endif %}
                       </div>
                     </div>
 
                     <div class="d-flex flex-wrap" style="gap:10px; align-items:center;">
                       <div class="tag-pill">
-                        Stability(10D):
+                        名單穩定度(10日):
                         <b style="color:#f1c40f;">
                           {% if st10 is not none %}{{ (st10*100)|round(1) }}%{% else %}-{% endif %}
                         </b>
                       </div>
 
                       <div class="tag-pill">
-                        Pressure(5D):
+                        買方壓力比(5日):
                         <b style="color:#f1c40f;">
                           {% if pr5 is not none %}{{ pr5|round(3) }}{% else %}-{% endif %}
                         </b>
                       </div>
 
                       <div class="tag-pill">
-                        Coh Persist(20D):
+                        群聚持久度(20日):
                         <b style="color:#f1c40f;">
                           {% if coh_p is not none %}{{ (coh_p*100)|round(1) }}%{% else %}-{% endif %}
                         </b>
@@ -258,7 +276,7 @@
 
                       {% set dr = sig.dist_risk_flag if sig.dist_risk_flag is defined else 0 %}
                       <div class="tag-pill" style="border-color: {{ '#e74c3c' if dr|int==1 else '#444' }};">
-                        DistRisk:
+                        派發風險:
                         <b style="color: {{ '#e74c3c' if dr|int==1 else '#2ecc71' }};">
                           {{ 'ON' if dr|int==1 else 'OFF' }}
                         </b>
@@ -267,10 +285,11 @@
                   </div>
 
                   <div style="margin-top:10px; color:#b8b8b8; font-size:0.9rem; line-height:1.4;">
-                    <span style="color:#2ecc71;">ACCUMULATION</span>=同一批人持續累積｜
-                    <span style="color:#f1c40f;">MARKUP</span>=價格行為確認｜
-                    <span style="color:#e74c3c;">DISTRIBUTION</span>=派發/退潮警戒｜
-                    <span style="color:#999;">NEUTRAL</span>=觀察中
+                  <span style="color:#2ecc71;">ACCUMULATION</span>=同一批人持續累積｜
+                  <span style="color:#f1c40f;">MARKUP</span>=價格行為確認｜
+                  <span style="color:#f39c12;">FADING</span>=退潮警戒｜
+                  <span style="color:#e74c3c;">DISTRIBUTION</span>=派發警戒｜
+                  <span style="color:#999;">NEUTRAL</span>=觀察中
                   </div>
                 </div>
               </div>
@@ -437,9 +456,83 @@
                 <div class="metric-card">
                   <div class="metric-label">Geo Grade</div>
                   <div class="metric-value">{{ sig.geo_grade if sig.geo_grade is defined else '-' }}</div>
+
+                  {# --- Geo Tag 人話翻譯（完全相容版）--- #}
+                  {% set raw_tag = sig.geo_tag if sig.geo_tag is defined else '' %}
+                  {% set geo_part = '' %}
+                  {% set base_part = '' %}
+
+                  {% if raw_tag and (raw_tag is string) and ('|' in raw_tag) %}
+                    {% set parts = raw_tag.split('|') %}
+                    {% set geo_part = parts[0] %}
+                    {% set base_part = parts[-1] %}
+                  {% else %}
+                    {% set geo_part = raw_tag %}
+                    {% set base_part = '' %}
+                  {% endif %}
+
+                  {# 1) geo_xxx → 中文 #}
+                  {% set geo_zh = '' %}
+                  {% if geo_part == 'geo_near_core' %}{% set geo_zh = '地緣：核心近距（<= 8km）' %}{% endif %}
+                  {% if geo_part == 'geo_ultra_near' %}{% set geo_zh = '地緣：極近（<= 5km）' %}{% endif %}
+                  {% if geo_part == 'geo_near' %}{% set geo_zh = '地緣：近距（8~15km）' %}{% endif %}
+                  {% if geo_part == 'geo_mid' %}{% set geo_zh = '地緣：中距（15~30km）' %}{% endif %}
+                  {% if geo_part == 'geo_far' %}{% set geo_zh = '地緣：遠距（> 30km）' %}{% endif %}
+                  {% if geo_part == 'geo_strong_by_z' %}{% set geo_zh = '地緣：Z 分數加強（異常接近）' %}{% endif %}
+                  {% if geo_part == 'geo_na' or geo_part == 'geo_error' %}{% set geo_zh = '地緣：資料不足/未計算' %}{% endif %}
+
+                  {# 2) baseline_xxx → 中文 #}
+                  {% set base_zh = '' %}
+
+                  {# baseline_org_city:local_台北市 / baseline_org:foreign / baseline_all ... #}
+                  {% if base_part and (base_part is string) %}
+                    {% if base_part.startswith('baseline_org_city:') %}
+                      {% set bc = base_part.replace('baseline_org_city:', '') %}
+                      {% set org = '' %}
+                      {% set city = '' %}
+                      {% if '_' in bc %}
+                        {% set org = bc.split('_')[0] %}
+                        {% set city = bc.split('_')[1] %}
+                      {% else %}
+                        {% set org = bc %}
+                        {% set city = '' %}
+                      {% endif %}
+
+                      {% set org_zh = org %}
+                      {% if org == 'local' %}{% set org_zh = '本土' %}{% endif %}
+                      {% if org == 'foreign' %}{% set org_zh = '外資' %}{% endif %}
+
+                      {% if city %}
+                        {% set base_zh = '基準線：' ~ org_zh ~ '券商＋' ~ city ~ '（最精準）' %}
+                      {% else %}
+                        {% set base_zh = '基準線：' ~ org_zh ~ '券商＋同城市（最精準）' %}
+                      {% endif %}
+
+                    {% elif base_part.startswith('baseline_org:') %}
+                      {% set org = base_part.replace('baseline_org:', '') %}
+                      {% set org_zh = org %}
+                      {% if org == 'local' %}{% set org_zh = '本土' %}{% endif %}
+                      {% if org == 'foreign' %}{% set org_zh = '外資' %}{% endif %}
+                      {% set base_zh = '基準線：' ~ org_zh ~ '券商（中等精準）' %}
+
+                    {% elif base_part == 'baseline_all' %}
+                      {% set base_zh = '基準線：全市場券商（較粗、保守）' %}
+
+                    {% elif base_part == 'baseline_insufficient' %}
+                      {% set base_zh = '基準線：樣本不足（不建議採信）' %}
+                    {% endif %}
+                  {% endif %}
+
+                  {# 3) 顯示：優先顯示人話；raw_tag 仍可保留在右上角判讀說明 #}
                   <div class="metric-label mt-1 text-warning">
-                    {{ sig.geo_tag if sig.geo_tag is defined else '' }}
+                    {% if geo_zh %}{{ geo_zh }}{% endif %}
+                    {% if base_zh %}
+                      <div class="metric-label mt-1 text-secondary" style="font-size:0.85rem; color:#cfcfcf;">
+                        {{ base_zh }}
+                      </div>
+                    {% endif %}
                   </div>
+                  
                 </div>
               </div>
 
