@@ -122,6 +122,9 @@
 <body>
 <div class="container py-5">
   <h1 class="mb-4 text-center" style="color: #f1c40f;">📊 RB 掃地僧籌碼戰情室V1.5.0</h1>
+  <div class="text-center mb-3">
+    <a href="/analytics/" class="btn btn-sm btn-outline-warning">查看 Backtest 統計 (60D)</a>
+  </div>
 
   <div class="row justify-content-center mb-3">
     <div class="col-lg-10">
@@ -241,7 +244,7 @@
                             {% if r == 'stability_ok' %}{% set r_zh = '名單穩定（同一批人延續）' %}{% endif %}
                             {% if r == 'pressure_buy' %}{% set r_zh = '買盤主導（壓力比偏買）' %}{% endif %}
                             {% if r == 'coherence_persist' %}{% set r_zh = '群聚持續（20日持久度夠）' %}{% endif %}
-                            {% if r == 'neutral' %}{% set r_zh = '訊號不足（觀察中）' %}{% endif %}
+                            {% if r == 'neutral' %}{% set r_zh = '偏多偏空不明顯（建議觀察）' %}{% endif %}
                             {% if r == 'no_reasons' %}{% set r_zh = '無原因（尚未產生）' %}{% endif %}
 
                             <span class="tag-pill">{{ r_zh }}</span>

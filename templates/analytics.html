@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RB Backtest Analytics</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #0c0c0c; color: #e0e0e0; font-family: 'Segoe UI', Microsoft JhengHei, sans-serif; }
+    .card { background-color: #1a1a1a; border: 1px solid #333; border-radius: 12px; }
+    .table-dark { --bs-table-bg: #1a1a1a; font-size: 0.85em; }
+    .table-dark th { color: #f1c40f; }
+    .badge-state { font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0" style="color:#f1c40f;">📈 Backtest Signals 60D Analytics</h2>
+    <div>
+      <a href="/dashboard/" class="btn btn-outline-light btn-sm">回到 Dashboard</a>
+    </div>
+  </div>
+
+  <p class="text-secondary" style="font-size:0.9rem;">
+    檔案：<code>{{ csv_name }}</code> |
+    樣本數：<span class="text-info">{{ total_samples }}</span> |
+    產生時間：<span class="text-info">{{ generated_at }}</span>
+  </p>
+
+  {% if error %}
+    <div class="alert alert-warning">{{ error }}</div>
+  {% else %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title mb-3">各股票 × Monitor 狀態　→　未來報酬統計</h5>
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover align-middle">
+            <thead>
+              <tr>
+                <th>股票代號</th>
+                <th>Monitor 狀態</th>
+                <th class="text-end">樣本數</th>
+                <th class="text-end">5日平均報酬</th>
+                <th class="text-end">5日勝率</th>
+                <th class="text-end">10日平均報酬</th>
+                <th class="text-end">10日勝率</th>
+                <th class="text-end">20日平均報酬</th>
+                <th class="text-end">20日勝率</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for row in stats %}
+              <tr>
+                <td><code>{{ row.stock_id }}</code></td>
+                <td>
+                  {% set s = row.monitor_state %}
+                  {% if s == 'ACCUMULATION' %}
+                    <span class="badge bg-success badge-state">ACCUMULATION</span>
+                  {% elif s == 'MARKUP' %}
+                    <span class="badge bg-warning text-dark badge-state">MARKUP</span>
+                  {% elif s == 'FADING' %}
+                    <span class="badge bg-orange badge-state" style="background:#f39c12;">FADING</span>
+                  {% elif s == 'DISTRIBUTION' %}
+                    <span class="badge bg-danger badge-state">DISTRIBUTION</span>
+                  {% else %}
+                    <span class="badge bg-secondary badge-state">NEUTRAL</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">{{ row.n }}</td>
+                <td class="text-end">{{ (row.ret_5d_avg * 100) | round(2) }}%</td>
+                <td class="text-end">{{ (row.ret_5d_win * 100) | round(1) }}%</td>
+                <td class="text-end">{{ (row.ret_10d_avg * 100) | round(2) }}%</td>
+                <td class="text-end">{{ (row.ret_10d_win * 100) | round(1) }}%</td>
+                <td class="text-end">{{ (row.ret_20d_avg * 100) | round(2) }}%</td>
+                <td class="text-end">{{ (row.ret_20d_win * 100) | round(1) }}%</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-secondary mt-2" style="font-size:0.85rem;">
+          勝率定義：該狀態下，<code>ret_Xd &gt; 0</code> 的比例（忽略 NaN）。
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-3">各股票 × Score 區間　→　未來報酬統計</h5>
+        <div class="table-responsive">
+          <table class="table table-dark table-striped table-hover align-middle">
+            <thead>
+              <tr>
+                <th>股票代號</th>
+                <th>Score 區間</th>
+                <th class="text-end">樣本數</th>
+                <th class="text-end">5日平均報酬</th>
+                <th class="text-end">5日勝率</th>
+                <th class="text-end">10日平均報酬</th>
+                <th class="text-end">10日勝率</th>
+                <th class="text-end">20日平均報酬</th>
+                <th class="text-end">20日勝率</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% if stats_score and stats_score|length > 0 %}
+              {% for row in stats_score %}
+                <tr>
+                  <td><code>{{ row.stock_id }}</code></td>
+                  <td>{{ row.score_bucket }}</td>
+                  <td class="text-end">{{ row.n }}</td>
+                  <td class="text-end">{{ (row.ret_5d_avg * 100) | round(2) }}%</td>
+                  <td class="text-end">{{ (row.ret_5d_win * 100) | round(1) }}%</td>
+                  <td class="text-end">{{ (row.ret_10d_avg * 100) | round(2) }}%</td>
+                  <td class="text-end">{{ (row.ret_10d_win * 100) | round(1) }}%</td>
+                  <td class="text-end">{{ (row.ret_20d_avg * 100) | round(2) }}%</td>
+                  <td class="text-end">{{ (row.ret_20d_win * 100) | round(1) }}%</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="9" class="text-center text-muted">尚無 Score 區間統計</td></tr>
+            {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-secondary mt-2" style="font-size:0.85rem;">
+          Score 來源：優先使用 <code>final_score</code>，否則使用 <code>score / trend_score</code>，區間為 0-40 / 40-60 / 60-80 / 80+。
+        </p>
+      </div>
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>
+

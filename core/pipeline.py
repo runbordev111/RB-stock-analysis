@@ -2,10 +2,10 @@
 import pandas as pd
 import math
 
-from core.signals_validation import compute_validation_signals
-from core.risk_rules import compute_risk_signals
+from core.signals.validation import compute_validation_signals
+from core.signals.risk import compute_risk_signals
 
-from core.signals_whale import (
+from core.signals.whale import (
     standardize_columns,
     compute_concentration,
     calc_breadth,
@@ -14,47 +14,18 @@ from core.signals_whale import (
     build_breadth_series,
     compute_master_trend,
 )
-from core.price_data import fetch_ohlcv_20d, fetch_price_nd
-from core.indicators_tv import compute_tv_radar_signals
-from core.regime import compute_regime_signals
+from core.io.price_data import fetch_ohlcv_20d, fetch_price_nd
+from core.signals.tv import compute_tv_radar_signals
+from core.signals.regime import compute_regime_signals
 
 from core.config import PipelineConfig
 from core.aggregate import compute_final_pack
 from core.types import Insight
-from core.geo_utils import compute_geo_topn_features
-
-
-# --- Company HQ Geo (TSE/OTC) -------------------------------------------------
-from functools import lru_cache
-
-
-@lru_cache(maxsize=2)
-def _load_company_geo_map(
-    tse_csv: str = "./rawdata/TSE_Company_V2.csv",
-    otc_csv: str = "./rawdata/OTC_Company_V2.csv",
-) -> dict:
-    """
-    讀上市/上櫃公司地址與經緯度，回傳 stock_id -> {lat, lon, address, name}
-    預設路徑可依你的專案：C:\\ngrok\\RB_DataMining\\rawdata\\...
-    """
-    out = {}
-    for p in [tse_csv, otc_csv]:
-        try:
-            df = pd.read_csv(p, dtype=str, encoding="utf-8-sig").fillna("")
-        except Exception:
-            continue
-        # 欄位：公司代號/公司簡稱/住址/Latitude/Longitude
-        for _, r in df.iterrows():
-            sid = str(r.get("公司代號", "")).strip()
-            if not sid:
-                continue
-            out[sid] = {
-                "name": str(r.get("公司簡稱", "")).strip(),
-                "address": str(r.get("住址", "")).strip(),
-                "lat": str(r.get("Latitude", "")).strip(),
-                "lon": str(r.get("Longitude", "")).strip(),
-            }
-    return out
+from core.signals.geo import compute_geo_signals, load_company_geo_map as _load_company_geo_map
+from core.signals.enhanced import compute_enhanced_signals
+from core.signals.distribution import compute_distribution_risk
+from core.signals.monitor import compute_monitor_state
+from core.signals.whale_extras import compute_turning_points, compute_whale_radar
 
 
 # -----------------------------------------------------------------------------
@@ -206,7 +177,7 @@ def analyze_whale_trajectory(
     top15_pack = build_top15_tables(df_20d, broker_map, date_20d)
     breadth_series_pack = build_breadth_series(df_20d, date_20d)
 
-    signals = {
+    signals: dict = {
         "concentration_5d": c5,
         "concentration_20d": c20,
         "netbuy_1d_lot": net_1d_lot,
@@ -226,12 +197,6 @@ def analyze_whale_trajectory(
         "top_sell_15": top15_pack["top_sell_15"],
         **breadth_series_pack,
     }
-
-    def _clamp(x, lo, hi):
-        return max(lo, min(hi, x))
-
-    def _tanh_0_100(x):  # x=0 -> 50；正向上升 -> 越接近100；負向 -> 越接近0
-        return round(50.0 + 50.0 * math.tanh(x), 1)
 
     # === A. ΔMajorFlow20：20日買方 Top15 張數 - 賣方 Top15 張數 ===
     buy_sum_20 = 0.0
@@ -340,211 +305,33 @@ def analyze_whale_trajectory(
     price_df_tail = price_df
 
     # === B. 主力拐點偵測 Turning Points ===
-    tp = {}
-
-    foreign_5 = float(fl5.get("foreign_net", 0.0))
-    local_5 = float(fl5.get("local_net", 0.0))
-    foreign_today = 0.0
-    local_today = 0.0
-
-    if not df_1d.empty and "org" in df_1d.columns:
-        foreign_today = float(df_1d[df_1d["org"] == "foreign"]["net"].sum())
-        local_today = float(df_1d[df_1d["org"] == "local"]["net"].sum())
-
-    tp["foreign_buy_switch"] = int(foreign_5 < 0 and foreign_today > 0)
-    tp["local_buy_switch"] = int(local_5 < 0 and local_today > 0)
-
-    tp["whale_reversal"] = 0
-    for bid in top6_ids:
-        seq = df_20d[df_20d["broker_id"] == bid].sort_values("date")["net"].tolist()
-        if len(seq) >= 4:
-            if seq[-4] < 0 and seq[-3] < 0 and seq[-2] < 0 and seq[-1] > 0:
-                tp["whale_reversal"] = 1
-                break
-
-    mean_buy20 = df_20d["buy"].mean()
-    today_buy = df_20d[df_20d["date"] == last_1d]["buy"].sum()
-    tp["abnormal_buy_spike"] = int(today_buy >= mean_buy20 * 3)
-
-    avg_prices = [float(r["avg_price"]) for r in top6_details if r.get("avg_price", 0) > 0]
-    if avg_prices:
-        cost_low = min(avg_prices)
-        close_recent = None
-        if price_df_tail is not None and not price_df_tail.empty and "close" in price_df_tail.columns:
-            close_recent = float(price_df_tail["close"].tail(3).min())
-        tp["cost_zone_defended"] = int(close_recent is not None and close_recent >= cost_low)
-    else:
-        tp["cost_zone_defended"] = 0
-
+    tp = compute_turning_points(
+        df_20d=df_20d,
+        df_1d=df_1d,
+        fl5=fl5,
+        top6_ids=top6_ids,
+        top6_details=top6_details,
+        date_20d=date_20d,
+        last_1d=last_1d,
+        price_df_tail=price_df_tail,
+    )
     signals["turning_points"] = tp
 
     # ----------------------------------------------------------
     # Whale Radar (0~100)
-    c20_val = float(signals.get("concentration_20d", 0) or 0)
-    c20_score = round(_clamp(c20_val, 0, 100), 1)
-
-    net1 = float(signals.get("netbuy_1d_lot", 0) or 0)
-    net5 = float(signals.get("netbuy_5d_lot", 0) or 0)
-    net20 = float(signals.get("netbuy_20d_lot", 0) or 0)
-
-    scale = max(10.0, abs(net20) / 4.0)
-    net_dir_score = _tanh_0_100(net5 / scale)
-
-    br5 = float(signals.get("breadth_ratio_5d", 0) or 0)
-    breadth_score = round(_clamp(br5, 0, 1) * 100.0, 1)
-
-    f5 = float(signals.get("foreign_net_5d", 0) or 0)
-    l5 = float(signals.get("local_net_5d", 0) or 0)
-    same_sign = (f5 == 0 and l5 == 0) or (f5 > 0 and l5 > 0) or (f5 < 0 and l5 < 0)
-
-    mag = abs(f5) + abs(l5)
-    mag_score = _clamp(mag / max(1.0, mag + 20000.0), 0, 1)
-    base = 65.0 if same_sign else 35.0
-    align_score = round(_clamp(base + 35.0 * mag_score, 0, 100), 1)
-
-    avg5 = net5 / 5.0
-    den = max(5.0, abs(avg5))
-    acc_score = _tanh_0_100(net1 / den)
-
-    signals["whale_radar"] = {
-        "labels": ["集中度", "淨買方向", "買盤廣度", "外本協同", "短期加速"],
-        "values": [c20_score, net_dir_score, breadth_score, align_score, acc_score],
-        "debug": {
-            "c20": c20_val,
-            "net1": net1,
-            "net5": net5,
-            "net20": net20,
-            "scale": scale,
-            "breadth_ratio_5d": br5,
-            "foreign_5d": f5,
-            "local_5d": l5,
-            "same_sign": int(same_sign),
-            "avg5": avg5,
-            "den": den,
-        },
-    }
-    print("🔎 whale_radar(pipeline)=", signals["whale_radar"])
+    signals["whale_radar"] = compute_whale_radar(signals, debug=debug_tv)
 
     # ----------------------------------------------------------
     # Enhanced (single source of truth) - coherence + cost zone + stats + streak
-    enhanced = signals.get("enhanced", {}) or {}
-
-    # === Coherence (upgrade to series) ===
-    buy_cnt_series = []
-    for d in date_20d:
-        dd = df_20d[df_20d["date"] == d]
-        gd = dd.groupby("broker_id")["net"].sum()
-        buy_cnt_series.append(int((gd > 0).sum()))
-
-    avg_buy_cnt = float(sum(buy_cnt_series) / len(buy_cnt_series)) if buy_cnt_series else 1.0
-    avg_buy_cnt = max(avg_buy_cnt, 1.0)
-
-    coh_series = [round(min(max((x / avg_buy_cnt), 0.0), 3.0), 2) for x in buy_cnt_series]
-    coh_today = coh_series[-1] if coh_series else 0.0
-
-    def _slope(y):
-        n = len(y)
-        if n < 2:
-            return 0.0
-        xs = list(range(n))
-        xbar = sum(xs) / n
-        ybar = sum(y) / n
-        num = sum((xs[i] - xbar) * (y[i] - ybar) for i in range(n))
-        den = sum((xs[i] - xbar) ** 2 for i in range(n)) or 1.0
-        return num / den
-
-    enhanced["coherence_today"] = round(coh_today, 2)
-    enhanced["buy_cnt_today"] = int(buy_cnt_series[-1]) if buy_cnt_series else 0
-    enhanced["avg_buy_cnt_20d"] = round(avg_buy_cnt, 1)
-    enhanced["coherence_series_20d"] = coh_series
-    enhanced["coherence_slope_5d"] = round(_slope(coh_series[-5:]), 3) if len(coh_series) >= 5 else None
-    enhanced["coherence_persistence_20d"] = (
-        round(sum(1 for v in coh_series if v >= 1.2) / len(coh_series), 3) if coh_series else None
+    signals = compute_enhanced_signals(
+        signals=signals,
+        df_20d=df_20d,
+        df_5d=df_5d,
+        date_20d=date_20d,
+        top6_details=top6_details,
+        top6_ids=top6_ids,
+        ohlcv_20d=ohlcv_20d,
     )
-    enhanced["coherence_max_20d"] = max(coh_series) if coh_series else None
-
-    # === Cost Zone Range + deviation + status ===
-    avg_prices = [float(r["avg_price"]) for r in top6_details if r.get("avg_price", 0) > 0]
-    if avg_prices and ohlcv_20d is not None and not ohlcv_20d.empty:
-        cost_low = float(min(avg_prices))
-        cost_high = float(max(avg_prices))
-        enhanced["cost_low"] = round(cost_low, 2)
-        enhanced["cost_high"] = round(cost_high, 2)
-
-        close_last = float(ohlcv_20d.iloc[-1]["close"])
-        enhanced["close_last"] = close_last
-        enhanced["cost_deviation"] = round((close_last - cost_low) / cost_low, 3) if cost_low > 0 else 0.0
-
-        if close_last > cost_high:
-            enhanced["cost_zone_status"] = "above_zone"
-        elif close_last >= cost_low:
-            enhanced["cost_zone_status"] = "inside_zone"
-        else:
-            enhanced["cost_zone_status"] = "below_zone"
-    else:
-        enhanced["cost_zone_status"] = "unknown"
-
-    # === Cost Zone statistics (20D) ===
-    if avg_prices and ohlcv_20d is not None and not ohlcv_20d.empty:
-        cost_low = float(min(avg_prices))
-        cost_high = float(max(avg_prices))
-        close = ohlcv_20d["close"].astype(float).tolist()
-
-        st = []
-        for c in close:
-            if c > cost_high:
-                st.append(2)
-            elif c >= cost_low:
-                st.append(1)
-            else:
-                st.append(0)
-
-        enhanced["cz_touch_20d"] = int(sum(1 for s in st if s == 1))
-
-        cz_up = 0
-        cz_dn = 0
-        for i in range(1, len(st)):
-            if st[i - 1] in (0, 1) and st[i] == 2:
-                cz_up += 1
-            if st[i - 1] in (1, 2) and st[i] == 0:
-                cz_dn += 1
-
-        enhanced["cz_break_up_20d"] = int(cz_up)
-        enhanced["cz_break_dn_20d"] = int(cz_dn)
-
-        defense_trials = 0
-        defense_wins = 0
-        for i in range(len(st)):
-            if st[i] == 0:
-                defense_trials += 1
-                horizon = st[i + 1 : i + 4]
-                if any(s in (1, 2) for s in horizon):
-                    defense_wins += 1
-
-        enhanced["cz_defense_win_20d"] = int(defense_wins)
-        enhanced["cz_defense_rate_20d"] = round(defense_wins / defense_trials, 3) if defense_trials > 0 else None
-
-    # === streak_strength ===
-    streak_strength = 0.0
-    for r in top6_details:
-        sb = int(r.get("streak_buy", 0))
-        if sb <= 0:
-            continue
-        bid = r["broker_id"]
-        df_b = df_5d[df_5d["broker_id"] == bid]
-        net5_lot = float(df_b["net"].sum()) / 1000.0
-
-        total_net5_lot = float(df_5d["net"].sum()) / 1000.0
-        avg5_lot = total_net5_lot / len(top6_ids) if len(top6_ids) > 0 else 0.0
-
-        if avg5_lot > 0:
-            strength = (math.log(sb + 1)) * (net5_lot / avg5_lot)
-            streak_strength = max(streak_strength, strength)
-
-    enhanced["streak_strength"] = round(streak_strength, 3)
-
-    # store once
-    signals["enhanced"] = enhanced
 
     # ----------------------------------------------------------
     # Regime（中期趨勢底座）
@@ -582,62 +369,9 @@ def analyze_whale_trajectory(
         return max(0.0, min(100.0, v))
 
     # -------------------------
-    # Validation / Risk (MVP)
-    validation = {
-        "breakout_flag": 0,
-        "divergence_flag": 0,
-        "confirmation_score": 0.0,
-    }
-    risk = {
-        "atr_pct_20d": 0.0,
-        "avg_turnover_20d": 0.0,
-        "invalid_flag": 0,
-    }
-
-    if ohlcv_20d is not None and not ohlcv_20d.empty:
-        dfp = ohlcv_20d.copy()
-
-        if {"close", "high"}.issubset(dfp.columns):
-            close = dfp["close"].astype(float)
-            high = dfp["high"].astype(float)
-
-            sma20 = close.rolling(20).mean()
-            high20 = high.rolling(20).max()
-
-            if len(dfp) >= 20 and pd.notna(sma20.iloc[-1]) and len(high20) >= 2 and pd.notna(high20.iloc[-2]):
-                last_close = float(close.iloc[-1])
-                last_sma20 = float(sma20.iloc[-1])
-                prev_high20 = float(high20.iloc[-2])
-
-                validation["breakout_flag"] = int(last_close >= last_sma20 and last_close > prev_high20)
-
-        score_now = float(signals.get("trend_score", 0) or 0)
-        validation["divergence_flag"] = int(score_now >= 70 and validation["breakout_flag"] == 0)
-        validation["confirmation_score"] = round(
-            (60.0 if validation["breakout_flag"] else 0.0) + min(max(score_now, 0.0), 100.0) * 0.4, 1
-        )
-
-        if {"high", "low", "close"}.issubset(dfp.columns):
-            high = dfp["high"].astype(float)
-            low = dfp["low"].astype(float)
-            close = dfp["close"].astype(float)
-            prev_close = close.shift(1)
-
-            tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
-            atr20 = tr.rolling(20).mean()
-            if len(atr20) > 0 and pd.notna(atr20.iloc[-1]) and float(close.iloc[-1]) != 0:
-                risk["atr_pct_20d"] = round(float(atr20.iloc[-1] / close.iloc[-1]), 4)
-
-        if "turnover" in dfp.columns:
-            risk["avg_turnover_20d"] = float(dfp["turnover"].tail(20).mean())
-        elif {"close", "volume"}.issubset(dfp.columns):
-            risk["avg_turnover_20d"] = float((dfp["close"].astype(float) * dfp["volume"].astype(float)).tail(20).mean())
-
-        if "close" in dfp.columns:
-            close = dfp["close"].astype(float)
-            sma20 = close.rolling(20).mean()
-            if len(dfp) >= 20 and pd.notna(sma20.iloc[-1]):
-                risk["invalid_flag"] = int(float(close.iloc[-1]) < float(sma20.iloc[-1]))
+    # Validation / Risk (MVP) - 使用專用模組
+    validation = compute_validation_signals(price_df=ohlcv_20d, signals=signals, cfg=cfg)
+    risk = compute_risk_signals(price_df=ohlcv_20d, signals=signals, cfg=cfg)
 
     signals["validation"] = validation
     signals["risk"] = risk
@@ -651,400 +385,19 @@ def analyze_whale_trajectory(
 
     # -------------------------
     # Geo: 分點地緣關聯性（Top5 買超分點 vs 公司總部）
-    company_map = _load_company_geo_map()
-    cmeta = company_map.get(str(stock_id).strip(), {}) or {}
-    hq_lat = None
-    hq_lon = None
-    try:
-        hq_lat = float(cmeta.get("lat", "") or 0) if str(cmeta.get("lat", "")).strip() else None
-        hq_lon = float(cmeta.get("lon", "") or 0) if str(cmeta.get("lon", "")).strip() else None
-    except Exception:
-        hq_lat, hq_lon = None, None
-
-    geo_pack = compute_geo_topn_features(
-        top_rows=signals.get("top_buy_15", []) or [],
-        hq_lat=hq_lat,
-        hq_lon=hq_lon,
+    signals, top6_details = compute_geo_signals(
+        signals=signals,
         broker_map=broker_map,
-        top_n=5,
+        stock_id=stock_id,
+        top6_details=top6_details,
     )
-    signals.update(geo_pack)
-
-    # --- fallback: build geo_top5_detail / wavg_km / affinity if missing ---
-    try:
-        from core.geo_utils import haversine_km
-
-        top_buy = signals.get("top_buy_15") or []
-        need_detail = (not isinstance(signals.get("geo_top5_detail"), list)) or (
-            len(signals.get("geo_top5_detail") or []) == 0
-        )
-
-        if need_detail:
-            geo_top5 = []
-            for r in top_buy:
-                if not isinstance(r, dict):
-                    continue
-                bid = str(r.get("broker_id", "")).strip()
-                if not bid:
-                    continue
-
-                meta = broker_map.get(bid) or {}
-                blat = meta.get("lat", None)
-                blon = meta.get("lon", None)
-
-                if blat is None or blon is None:
-                    continue
-
-                city = str(meta.get("city", "") or "").strip()
-                orgt = str(meta.get("broker_org_type", "") or "").strip()
-
-                km = None
-                try:
-                    if hq_lat is not None and hq_lon is not None:
-                        km = float(haversine_km(float(hq_lat), float(hq_lon), float(blat), float(blon)))
-                except Exception:
-                    km = None
-
-                geo_top5.append(
-                    {
-                        "broker_id": bid,
-                        "broker_name": r.get("broker_name") or meta.get("broker_name") or "",
-                        "net_lot": float(r.get("net_lot", 0) or 0),
-                        "city": city,
-                        "broker_org_type": orgt,
-                        "lat": blat,
-                        "lon": blon,
-                        "km_to_hq": km,
-                    }
-                )
-
-                if len(geo_top5) >= 5:
-                    break
-
-            signals["geo_top5_detail"] = geo_top5
-
-        if signals.get("geo_top5_wavg_km") is None:
-            d = signals.get("geo_top5_detail") or []
-            kms = [x.get("km_to_hq") for x in d if isinstance(x, dict) and x.get("km_to_hq") is not None]
-            if kms:
-                signals["geo_top5_wavg_km"] = round(sum(kms) / len(kms), 2)
-
-        if signals.get("geo_affinity_score") is None:
-            d = signals.get("geo_top5_detail") or []
-            cities = [
-                str(x.get("city") or "").strip()
-                for x in d
-                if isinstance(x, dict) and str(x.get("city") or "").strip()
-            ]
-            if cities:
-                major = max(set(cities), key=cities.count)
-                signals["geo_affinity_score"] = round(100.0 * (cities.count(major) / len(cities)), 1)
-
-    except Exception:
-        pass
 
     # -------------------------
-    # Geo Baseline + ZScore + Grade/Tag
-    try:
-        import statistics
-        from core.geo_utils import haversine_km
-
-        def _norm_city(s: str) -> str:
-            s = (s or "").strip()
-            if not s:
-                return ""
-            s = s.replace("臺", "台")
-            s = s.replace("　", " ").replace("\u3000", " ")
-            s = " ".join(s.split())
-            return s
-
-        top_rows = signals.get("top_buy_15", []) or []
-        buys = [r for r in top_rows if float(r.get("net_lot", 0) or 0) > 0][:5]
-
-        def _wmode(rows, key: str):
-            acc = {}
-            for r in rows:
-                w = abs(float(r.get("net_lot", 0) or 0))
-                v = str(r.get(key, "") or "").strip()
-                if not v:
-                    continue
-                if key == "city":
-                    v = _norm_city(v)
-                acc[v] = acc.get(v, 0.0) + w
-            if not acc:
-                return ""
-            return sorted(acc.items(), key=lambda x: x[1], reverse=True)[0][0]
-
-        norm = []
-        for r in buys:
-            bid = str(r.get("broker_id", "")).strip()
-            meta = broker_map.get(bid, {}) if bid else {}
-            nr = dict(r)
-
-            if not str(nr.get("broker_org_type", "") or "").strip():
-                nr["broker_org_type"] = str(meta.get("broker_org_type", "") or "").strip()
-
-            if not str(nr.get("city", "") or "").strip():
-                nr["city"] = _norm_city(str(meta.get("city", "") or ""))
-            else:
-                nr["city"] = _norm_city(str(nr.get("city", "") or ""))
-
-            norm.append(nr)
-
-        target_org = _wmode(norm, "broker_org_type")
-        target_city = _norm_city(_wmode(norm, "city"))
-
-        def _iter_candidates(mode: str):
-            for _, meta in (broker_map or {}).items():
-                meta = meta or {}
-                try:
-                    blat = float(str(meta.get("lat", "")).strip()) if str(meta.get("lat", "")).strip() else None
-                    blon = float(str(meta.get("lon", "")).strip()) if str(meta.get("lon", "")).strip() else None
-                except Exception:
-                    blat, blon = None, None
-                if blat is None or blon is None:
-                    continue
-
-                org = str(meta.get("broker_org_type", "") or "").strip()
-                city = _norm_city(str(meta.get("city", "") or ""))
-
-                if mode == "org_city":
-                    if (target_org and org != target_org) or (target_city and city != target_city):
-                        continue
-                elif mode == "org":
-                    if target_org and org != target_org:
-                        continue
-
-                yield (blat, blon)
-
-        def _baseline_stats(mode: str):
-            ds = []
-            if hq_lat is None or hq_lon is None:
-                return None
-            for blat, blon in _iter_candidates(mode):
-                d = haversine_km(float(hq_lat), float(hq_lon), float(blat), float(blon))
-                if d is not None:
-                    ds.append(float(d))
-            if len(ds) < 30:
-                return None
-            mu = statistics.mean(ds)
-            sd = statistics.pstdev(ds)
-            if sd <= 1e-9:
-                sd = 1.0
-            return (mu, sd, len(ds))
-
-        baseline_tag = "baseline_all"
-        baseline_w = 0.70
-        chosen = _baseline_stats("org_city")
-        if chosen is not None:
-            baseline_tag = f"baseline_org_city:{target_org or 'na'}_{target_city or 'na'}"
-            baseline_w = 1.00
-        else:
-            chosen = _baseline_stats("org")
-            if chosen is not None:
-                baseline_tag = f"baseline_org:{target_org or 'na'}"
-                baseline_w = 0.85
-            else:
-                chosen = _baseline_stats("all")
-                baseline_tag = "baseline_all"
-                baseline_w = 0.70
-
-        wavg_km = float(signals.get("geo_top5_wavg_km", 0) or 0)
-        if chosen is not None and wavg_km > 0:
-            mu, sd, n = chosen
-            z = (wavg_km - mu) / sd
-            signals["geo_zscore"] = round(z, 2)
-            signals["geo_baseline_mu_km"] = round(mu, 2)
-            signals["geo_baseline_sd_km"] = round(sd, 2)
-            signals["geo_baseline_n"] = int(n)
-        else:
-            signals["geo_zscore"] = None
-
-        signals["geo_baseline_tag"] = baseline_tag
-        signals["geo_baseline_weight"] = round(float(baseline_w), 2)
-
-        z = signals.get("geo_zscore", None)
-        try:
-            z = float(z) if z is not None else None
-        except Exception:
-            z = None
-
-        if wavg_km > 0 and wavg_km <= 8:
-            grade, tag = "A", "geo_near_core"
-        elif wavg_km > 8 and wavg_km <= 15:
-            grade, tag = "B", "geo_near"
-        elif wavg_km > 15 and wavg_km <= 30:
-            grade, tag = "C", "geo_mid"
-        elif wavg_km > 30:
-            grade, tag = "D", "geo_far"
-        else:
-            grade, tag = "NA", "geo_na"
-
-        if grade in ("B", "C", "D"):
-            if wavg_km > 0 and wavg_km <= 5:
-                grade, tag = "A", "geo_ultra_near"
-            elif (wavg_km > 0 and wavg_km <= 12) and (z is not None and z <= -1.2):
-                grade, tag = "A", "geo_strong_by_z"
-
-        if z is not None and grade in ("A", "B", "C", "D"):
-            if z <= -1.0 and grade != "A":
-                grade = {"D": "C", "C": "B", "B": "A"}.get(grade, grade)
-                tag = f"{tag}_boost_z"
-            elif z >= 1.0 and grade != "D":
-                grade = {"A": "B", "B": "C", "C": "D"}.get(grade, grade)
-                tag = f"{tag}_penalty_z"
-
-        if baseline_tag:
-            tag = f"{tag}|{baseline_tag}"
-
-        signals["geo_grade"] = grade
-        signals["geo_tag"] = tag
-
-    except Exception:
-        signals.setdefault("geo_zscore", None)
-        signals.setdefault("geo_grade", None)
-        signals.setdefault("geo_tag", "geo_error")
-        signals.setdefault("geo_baseline_tag", "baseline_error")
-        signals.setdefault("geo_baseline_weight", 0.70)
-
-    # Top6 詳細也補上距離（給 dashboard drill-down）
-    if hq_lat is not None and hq_lon is not None:
-        for r in top6_details:
-            bid = str(r.get("broker_id", "")).strip()
-            meta = broker_map.get(bid, {}) or {}
-            try:
-                blat = float(str(meta.get("lat", "")).strip()) if str(meta.get("lat", "")).strip() else None
-                blon = float(str(meta.get("lon", "")).strip()) if str(meta.get("lon", "")).strip() else None
-            except Exception:
-                blat, blon = None, None
-            if blat is not None and blon is not None:
-                from core.geo_utils import haversine_km
-
-                r["km_to_hq"] = round(haversine_km(hq_lat, hq_lon, blat, blon), 1)
-            else:
-                r["km_to_hq"] = None
-
-    # -------------------------
-    # HHI / Entropy + risk tag
-    def _hhi_entropy(df, side="buy", top_n=15):
-        if df is None or df.empty:
-            return (None, None)
-        g = df.groupby("broker_id", as_index=False)["net"].sum()
-        g["net"] = pd.to_numeric(g["net"], errors="coerce").fillna(0.0)
-
-        if side == "buy":
-            g = g[g["net"] > 0].sort_values("net", ascending=False).head(top_n)
-            w = g["net"].astype(float).tolist()
-        else:
-            g = g[g["net"] < 0].sort_values("net", ascending=True).head(top_n)
-            w = [abs(float(x)) for x in g["net"].tolist()]
-
-        s = sum(w)
-        if s <= 0:
-            return (None, None)
-
-        p = [x / s for x in w if x > 0]
-        hhi = sum(pi * pi for pi in p)
-        ent = -sum(pi * math.log(pi + 1e-12) for pi in p)
-        return (round(hhi, 4), round(ent, 4))
-
-    buy_hhi, buy_ent = _hhi_entropy(df_20d, "buy", 15)
-    sell_hhi, sell_ent = _hhi_entropy(df_20d, "sell", 15)
-
-    signals["buy_hhi_20d"] = buy_hhi
-    signals["buy_entropy_20d"] = buy_ent
-    signals["sell_hhi_20d"] = sell_hhi
-    signals["sell_entropy_20d"] = sell_ent
-
-    net1 = float(signals.get("netbuy_1d_lot", 0) or 0)
-    net5 = float(signals.get("netbuy_5d_lot", 0) or 0)
-
-    dist_flag = 0
-    reasons = []
-
-    if buy_hhi is not None and buy_hhi >= 0.22 and net5 <= 0:
-        dist_flag = 1
-        reasons.append("buy_hhi_high_and_net5_weak")
-    if sell_hhi is not None and sell_hhi >= 0.22 and net1 < 0:
-        dist_flag = 1
-        reasons.append("sell_hhi_high_and_net1_negative")
-
-    signals["dist_risk_flag"] = int(dist_flag)
-    signals["dist_risk_tag"] = "|".join(reasons) if reasons else ""
+    # HHI / Entropy + distribution risk tag
+    signals = compute_distribution_risk(signals=signals, df_20d=df_20d)
 
     # === Whale Trend Monitor (long-term) - 5 states ===
-    ez = (signals.get("enhanced") or {})
-    st10 = signals.get("top15_buy_stability_10d")
-    pr5  = signals.get("pressure_ratio_5d")
-    coh_p = ez.get("coherence_persistence_20d")
-    coh_s = ez.get("coherence_slope_5d")
-    coh_t = ez.get("coherence_today")
-
-    dist = int(signals.get("dist_risk_flag", 0) or 0)
-    net5 = float(signals.get("netbuy_5d_lot", 0) or 0)
-
-    breakout = int((signals.get("validation") or {}).get("breakout_flag", 0) or 0)
-    tv_score = float(signals.get("tv_score", 0) or 0)
-
-    def _to_float(x):
-        try:
-            return float(x)
-        except Exception:
-            return None
-
-    st10_v = _to_float(st10)
-    pr5_v  = _to_float(pr5)
-    coh_pv = _to_float(coh_p)
-    coh_sv = _to_float(coh_s)
-    coh_tv = _to_float(coh_t)
-
-    state = "NEUTRAL"
-    reasons = []
-
-    # ---- Signals ----
-    pressure_sell = (pr5_v is not None and pr5_v <= 0.45 and net5 <= 0)
-    coherence_fade = (coh_sv is not None and coh_tv is not None and coh_sv < 0 and coh_tv < 1.0)
-
-    acc_hit = (
-        (st10_v is not None and st10_v >= 0.35) and
-        (pr5_v is not None and pr5_v >= 0.55) and
-        (coh_pv is not None and coh_pv >= 0.25) and
-        (dist == 0)
-    )
-
-    mk_hit = ((breakout == 1) or (tv_score >= 3.0)) and (st10_v is not None and st10_v >= 0.25)
-
-    # ---- Priority order ----
-    # 1) DISTRIBUTION: 必須 dist_risk_on 才叫「派發」
-    if dist == 1:
-        state = "DISTRIBUTION"
-        reasons.append("dist_risk_on")
-        if pressure_sell: reasons.append("pressure_sell_dominate")
-        if coherence_fade: reasons.append("coherence_fading")
-
-    # 2) FADING: 無 dist_risk，但出現退潮訊號
-    elif pressure_sell or coherence_fade:
-        state = "FADING"
-        if pressure_sell: reasons.append("pressure_sell_dominate")
-        if coherence_fade: reasons.append("coherence_fading")
-
-    # 3) MARKUP: 價格行為確認（但沒有退潮/派發）
-    elif mk_hit:
-        state = "MARKUP"
-        reasons.append("price_confirmed")
-
-    # 4) ACCUMULATION: 同一批人持續累積（但未進入 markup）
-    elif acc_hit:
-        state = "ACCUMULATION"
-        reasons += ["stability_ok", "pressure_buy", "coherence_persist"]
-
-    # 5) NEUTRAL
-    else:
-        state = "NEUTRAL"
-        reasons.append("neutral")
-
-    signals["monitor_state"] = state
-    signals["monitor_reasons"] = reasons[:6]
+    signals = compute_monitor_state(signals)
 
     # -------------------------
     signals.update(compute_final_pack(signals, cfg))

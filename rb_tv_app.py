@@ -9,8 +9,9 @@ import urllib3
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+
+from core.io.finmind_client import FinMindClient
+from core.io.broker_master import load_broker_master_enriched
 
 # ------------------------------------------------------
 # 基本設定
@@ -26,9 +27,8 @@ TELEGRAM_CHAT_ID = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
 FINMIND_TOKEN = (os.getenv("FINMIND_API_TOKEN") or "").strip()
 
 TWSE_T86_URL = "https://www.twse.com.tw/rwd/zh/fund/T86"
-FINMIND_V4_DATA_URL = "https://api.finmindtrade.com/api/v4/data"
 
-# 建議：公司網路/憑證怪怪可改 False（會自動降級）
+# 建議：公司網路/憑證怪怪可改 False
 VERIFY_SSL = True
 
 app = Flask(__name__)
@@ -36,64 +36,6 @@ app = Flask(__name__)
 
 def now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-# ======================================================
-# A. FinMind Client（不用 FinMind 套件，避免 import 問題）
-# ======================================================
-class FinMindClient:
-    def __init__(self, token: str, verify_ssl: bool = True):
-        self.token = (token or "").strip()
-        self.verify_ssl = verify_ssl
-        self.session = self._build_session()
-
-    def _build_session(self) -> requests.Session:
-        s = requests.Session()
-        retries = Retry(
-            total=5,
-            connect=5,
-            read=5,
-            backoff_factor=1.0,
-            status_forcelist=[408, 429, 500, 502, 503, 504],
-            allowed_methods=frozenset(["GET"]),
-            raise_on_status=False,
-            respect_retry_after_header=True,
-        )
-        adapter = HTTPAdapter(max_retries=retries, pool_connections=20, pool_maxsize=20)
-        s.mount("https://", adapter)
-        s.mount("http://", adapter)
-
-        if self.token:
-            s.headers.update({"Authorization": f"Bearer {self.token}"})
-        return s
-
-    def request_data(self, dataset: str, data_id: str = None, start_date: str = None, end_date: str = None) -> pd.DataFrame:
-        params = {"dataset": dataset}
-        if data_id:
-            params["data_id"] = data_id
-        if start_date:
-            params["start_date"] = start_date
-        if end_date:
-            params["end_date"] = end_date
-
-        try:
-            r = self.session.get(FINMIND_V4_DATA_URL, params=params, timeout=30, verify=self.verify_ssl)
-            js = r.json() if r.content else {}
-            if r.status_code == 200 and js.get("status") == 200:
-                return pd.DataFrame(js.get("data", []))
-            return pd.DataFrame()
-        except requests.exceptions.SSLError:
-            # SSL 失敗自動降級
-            try:
-                r = self.session.get(FINMIND_V4_DATA_URL, params=params, timeout=30, verify=False)
-                js = r.json() if r.content else {}
-                if r.status_code == 200 and js.get("status") == 200:
-                    return pd.DataFrame(js.get("data", []))
-            except Exception:
-                pass
-            return pd.DataFrame()
-        except Exception:
-            return pd.DataFrame()
 
 
 fm = FinMindClient(FINMIND_TOKEN, verify_ssl=VERIFY_SSL)
@@ -169,38 +111,6 @@ def get_stock_name(stock_id: str) -> str:
     return name
 
 
-def load_broker_master_enriched(data_path: str) -> dict:
-    """
-    讀 ./data/broker_master_enriched.csv，回傳 mapping:
-      broker_id -> {city, broker_org_type, is_proprietary, seat_type, broker_name(optional)}
-    若檔案不存在就回空 dict（不讓 dashboard 爆）
-    """
-    path = os.path.join(data_path, "broker_master_enriched.csv")
-    if not os.path.exists(path):
-        return {}
-
-    try:
-        df = pd.read_csv(path, dtype=str).fillna("")
-    except Exception:
-        return {}
-
-    keep_cols = set(df.columns)
-    out = {}
-    for _, r in df.iterrows():
-        bid = str(r.get("broker_id", "")).strip()
-        if not bid:
-            continue
-        out[bid] = {
-            "city": str(r.get("city", "")).strip(),
-            "broker_org_type": str(r.get("broker_org_type", "")).strip(),  # foreign/local/unknown
-            "is_proprietary": str(r.get("is_proprietary", "")).strip(),    # Y/N
-            "seat_type": str(r.get("seat_type", "")).strip(),              # hq/branch/aggregate/unknown
-        }
-        if "broker_name" in keep_cols:
-            out[bid]["broker_name"] = str(r.get("broker_name", "")).strip()
-    return out
-
-
 def enrich_top6_details(top6_details: list, broker_map: dict) -> list:
     """
     把 top6_details 補上 city / broker_org_type / is_proprietary / seat_type
@@ -235,6 +145,146 @@ def list_available_stock_ids(data_path: str) -> list:
         if sid.isdigit():
             ids.append(sid)
     return sorted(set(ids), key=lambda x: int(x))
+
+
+def load_backtest_signals(data_path: str) -> tuple[pd.DataFrame | None, str | None]:
+    """
+    嘗試讀取 backtest_signals_60d.csv，回傳 DataFrame 與檔案路徑。
+    """
+    csv_path = os.path.join(data_path, "backtest_signals_60d.csv")
+    if not os.path.exists(csv_path):
+        return None, None
+    try:
+        df = pd.read_csv(csv_path)
+        return df, csv_path
+    except Exception as e:
+        print(f"⚠️ 讀取 backtest_signals_60d.csv 失敗: {repr(e)}")
+        return None, csv_path
+
+
+def summarize_backtest_by_state(df: pd.DataFrame) -> list[dict]:
+    """
+    依 stock_id × monitor_state 匯總：
+      - 樣本數 n
+      - ret_5d/10d/20d 平均
+      - ret_5d/10d/20d 勝率
+    """
+    if df is None or df.empty:
+        return []
+
+    for col in ["ret_5d", "ret_10d", "ret_20d"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df = df.copy()
+    df["monitor_state"] = df.get("monitor_state", "NEUTRAL").fillna("NEUTRAL").astype(str)
+
+    groups = df.groupby(["stock_id", "monitor_state"], dropna=False)
+
+    stats: list[dict] = []
+    for (stock_id, state), g in groups:
+        row: dict = {
+            "stock_id": str(stock_id),
+            "monitor_state": str(state),
+            "n": int(len(g)),
+        }
+        for h in [5, 10, 20]:
+            col = f"ret_{h}d"
+            if col in g.columns:
+                series = g[col].dropna()
+                if len(series) > 0:
+                    row[f"ret_{h}d_avg"] = float(series.mean())
+                    row[f"ret_{h}d_win"] = float((series > 0).mean())
+                else:
+                    row[f"ret_{h}d_avg"] = 0.0
+                    row[f"ret_{h}d_win"] = 0.0
+            else:
+                row[f"ret_{h}d_avg"] = 0.0
+                row[f"ret_{h}d_win"] = 0.0
+        stats.append(row)
+
+    order = ["ACCUMULATION", "MARKUP", "FADING", "DISTRIBUTION", "NEUTRAL"]
+    def sort_key(r: dict):
+        st = r.get("monitor_state", "NEUTRAL")
+        idx = order.index(st) if st in order else len(order)
+        return (int(r.get("stock_id", "0") or 0), idx)
+
+    stats.sort(key=sort_key)
+    return stats
+
+
+def summarize_backtest_by_score(df: pd.DataFrame) -> list[dict]:
+    """
+    依 stock_id × score 區間（0-40 / 40-60 / 60-80 / 80+）匯總：
+      - 樣本數 n
+      - ret_5d/10d/20d 平均
+      - ret_5d/10d/20d 勝率
+    """
+    if df is None or df.empty:
+        return []
+
+    df = df.copy()
+
+    # 先決定有效分數：優先 final_score，其次 score/ trend_score
+    score_cols = ["final_score", "score", "trend_score"]
+    score_series = None
+    for c in score_cols:
+        if c in df.columns:
+            score_series = pd.to_numeric(df[c], errors="coerce")
+            break
+    if score_series is None:
+        return []
+
+    df["score_eff"] = score_series.fillna(0.0)
+
+    def bucket_label(x: float) -> str:
+        if x < 40:
+            return "0-40"
+        if x < 60:
+            return "40-60"
+        if x < 80:
+            return "60-80"
+        return "80+"
+
+    df["score_bucket"] = df["score_eff"].apply(bucket_label)
+
+    for col in ["ret_5d", "ret_10d", "ret_20d"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    groups = df.groupby(["stock_id", "score_bucket"], dropna=False)
+
+    stats: list[dict] = []
+    for (stock_id, bucket), g in groups:
+        row: dict = {
+            "stock_id": str(stock_id),
+            "score_bucket": str(bucket),
+            "n": int(len(g)),
+        }
+        for h in [5, 10, 20]:
+            col = f"ret_{h}d"
+            if col in g.columns:
+                series = g[col].dropna()
+                if len(series) > 0:
+                    row[f"ret_{h}d_avg"] = float(series.mean())
+                    row[f"ret_{h}d_win"] = float((series > 0).mean())
+                else:
+                    row[f"ret_{h}d_avg"] = 0.0
+                    row[f"ret_{h}d_win"] = 0.0
+            else:
+                row[f"ret_{h}d_avg"] = 0.0
+                row[f"ret_{h}d_win"] = 0.0
+        stats.append(row)
+
+    bucket_order = ["0-40", "40-60", "60-80", "80+"]
+
+    def sort_key(r: dict):
+        b = r.get("score_bucket", "0-40")
+        idx = bucket_order.index(b) if b in bucket_order else len(bucket_order)
+        return (int(r.get("stock_id", "0") or 0), idx)
+
+    stats.sort(key=sort_key)
+    return stats
 
 # ======================================================
 # C. 籌碼規則（TWSE T86 → 近 5 日外資+投信同買）
@@ -425,6 +475,38 @@ def dashboard():
             stock_info["status"] = f"⚠️ JSON 讀取失敗: {repr(e)}"
 
     return render_template("dashboard.html", stock=stock_info, available_stocks=available_stocks)
+
+
+@app.route("/analytics/")
+def analytics():
+    df, csv_path = load_backtest_signals(DATA_PATH)
+    if df is None:
+        return render_template(
+            "analytics.html",
+            error="找不到 backtest_signals_60d.csv，請先執行 SubPY/backtest_signals_60d.py 產生回測樣本。",
+            csv_name=csv_path or "backtest_signals_60d.csv",
+            total_samples=0,
+            generated_at="N/A",
+            stats=[],
+        )
+
+    stats = summarize_backtest_by_state(df)
+    stats_score = summarize_backtest_by_score(df)
+    total_samples = len(df)
+    try:
+        mtime = datetime.fromtimestamp(os.path.getmtime(csv_path)).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        mtime = "N/A"
+
+    return render_template(
+        "analytics.html",
+        error=None,
+        csv_name=os.path.basename(csv_path) if csv_path else "backtest_signals_60d.csv",
+        total_samples=total_samples,
+        generated_at=mtime,
+        stats=stats,
+        stats_score=stats_score,
+    )
 
 if __name__ == "__main__":
     # 本機建議 5000；GCP/容器可用環境變數 PORT

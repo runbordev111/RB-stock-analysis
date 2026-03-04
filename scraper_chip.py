@@ -11,9 +11,9 @@ import urllib3
 from datetime import datetime
 from dotenv import load_dotenv
 
-from core.finmind_client import FinMindClient
-from core.adapter_tw import TaiwanStockAdapter
-from core.broker_master import load_broker_master_enriched
+from core.io.finmind_client import FinMindClient
+from core.services.adapter_tw import TaiwanStockAdapter
+from core.io.broker_master import load_broker_master_enriched
 from core.pipeline import analyze_whale_trajectory
 from core.pipeline import _load_company_geo_map  # ✅ 新增：強制載入公司經緯度主檔（warm-up）
 
