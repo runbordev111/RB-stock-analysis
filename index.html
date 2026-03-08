@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RB 籌碼戰情室 - 靜態 Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .led-pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px; background:#1e1e1e; border:1px solid #3a3a3a; color:#cfcfcf; font-weight:700; font-size:0.95rem; }
+    .led-pill.off{ opacity:.55; }
+    .led-pill.off .led-dot{ background:#555; }
+    .led-dot{ width:10px; height:10px; border-radius:50%; background:#666; }
+    .led-pill.on .led-dot{ background:#22c55e; box-shadow:0 0 10px rgba(34,197,94,.9); }
+    .led-pill.danger .led-dot{ background:#ef4444; box-shadow:0 0 10px rgba(239,68,68,.9); }
+    .led-group{ display:flex; flex-wrap:wrap; gap:10px; }
+    .broker-chip{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+    body{ background:#0c0c0c; color:#e0e0e0; font-family:'Segoe UI',Microsoft JhengHei,sans-serif; }
+    .card{ background:#1a1a1a; border:1px solid #333; margin-bottom:20px; border-radius:12px; }
+    .status-pass{ color:#2ecc71; font-weight:bold; }
+    .status-fail{ color:#e74c3c; font-weight:bold; }
+    .status-warn{ color:#f1c40f; font-weight:bold; }
+    .update-time{ font-size:0.85em; color:#888; }
+    .table-dark{ --bs-table-bg:#1a1a1a; font-size:0.85em; }
+    .table-dark th{ color:#f1c40f; }
+    .buy-row{ color:#ff4444; font-weight:bold; }
+    .sell-row{ color:#66b2ff; font-weight:bold; }
+    .metric-card{ text-align:center; padding:15px; border-radius:8px; background:#252525; }
+    .metric-value{ font-size:1.8rem; font-weight:bold; color:#f1c40f; }
+    .metric-label{ font-size:0.8rem; color:#aaa; }
+    .tag-pill{ display:inline-block; padding:4px 10px; border-radius:999px; background:#2b2b2b; color:#ddd; font-size:0.8rem; margin-right:6px; margin-top:6px; border:1px solid #444; }
+    .chart-container{ position:relative; height:350px; width:100%; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+<div class="container py-5">
+  <h1 class="mb-4 text-center" style="color:#f1c40f;">📊 RB 籌碼戰情室（靜態版）</h1>
+  <p class="text-center text-muted mb-4">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
+
+  <div class="row justify-content-center mb-3">
+    <div class="col-lg-10">
+      <label class="mb-0 fs-3 fw-bold text-white">切換股票：</label>
+      <select id="stockSelect" class="form-select form-select-lg w-auto bg-dark text-white border-secondary" style="font-size:1.75rem;">
+        <option value="">載入中…</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="content"></div>
+  <div id="loading" class="text-center text-muted py-5">選擇股票後將載入數據…</div>
+</div>
+
+<script>
+(function(){
+  const DATA_BASE = 'data';
+  let manifest = { stock_ids: [], stocks: [] };
+  let whaleChart = null;
+
+  function el(id){ return document.getElementById(id); }
+  function buildFlags(signals){
+    const f5 = parseFloat(signals.foreign_net_5d || 0) || 0;
+    const l5 = parseFloat(signals.local_net_5d || 0) || 0;
+    const buy5 = parseFloat(signals.buy_count_5d || 0) || 0;
+    const sell5 = parseFloat(signals.sell_count_5d || 0) || 0;
+    const score_u = parseFloat(signals.score_unified || signals.score || 0) || 0;
+    const trend = String(signals.trend || '');
+    return {
+      fb_diverge: ((f5>0&&l5<0)||(f5<0&&l5>0)) ? 1 : 0,
+      breadth_expand: (buy5-sell5)>0 ? 1 : 0,
+      net_sell_dominate: (trend.indexOf('偏空')>=0 || score_u<=30) ? 1 : 0,
+      strength_high: score_u>=75 ? 1 : 0
+    };
+  }
+  function msZh(ms){
+    const m = { ACCUMULATION:'吸籌/佈局期', MARKUP:'推升/趨勢延續', FADING:'退潮警戒', DISTRIBUTION:'派發警戒' };
+    return m[ms] || '觀察中';
+  }
+  function msColor(ms){
+    const c = { DISTRIBUTION:'#e74c3c', FADING:'#f39c12', ACCUMULATION:'#2ecc71', MARKUP:'#f1c40f' };
+    return c[ms] || '#999';
+  }
+
+  function render(stock){
+    const sig = stock.signals || {};
+    const flags = sig.flags || buildFlags(sig);
+    const ms = sig.monitor_state || 'NEUTRAL';
+    const mr = sig.monitor_reasons || [];
+    const c20 = sig.concentration_20d != null ? sig.concentration_20d : '-';
+    const c5  = sig.concentration_5d != null ? sig.concentration_5d : '-';
+    const trend = sig.trend || '觀察中';
+    const scoreU = sig.score_unified != null ? sig.score_unified : (sig.score != null ? sig.score : '-');
+    const geo = sig.geo_grade != null ? sig.geo_grade : '-';
+    const top6 = stock.top6_details || [];
+    const colorMap = {};
+    (stock.whale_data || []).forEach(function(w){ colorMap[w.name]= w.color || '#888'; });
+
+    let ledHtml = '';
+    ledHtml += '<span class="led-pill ' + (flags.fb_diverge===1?'on':'off') + '"><span class="led-dot"></span>外/本分歧</span>';
+    ledHtml += '<span class="led-pill ' + (flags.breadth_expand===1?'on':'off') + '"><span class="led-dot"></span>實盤擴散</span>';
+    ledHtml += '<span class="led-pill ' + (flags.net_sell_dominate===1?'danger':'off') + '"><span class="led-dot"></span>淨賣主導</span>';
+    ledHtml += '<span class="led-pill ' + (flags.strength_high===1?'on':'off') + '"><span class="led-dot"></span>強度高</span>';
+
+    let statusCls = 'status-warn';
+    if (stock.status && stock.status.indexOf('✅')>=0) statusCls = 'status-pass';
+    else if (stock.status && stock.status.indexOf('⚠️')>=0) statusCls = 'status-warn';
+    else if (stock.status && stock.status.indexOf('❌')>=0) statusCls = 'status-fail';
+
+    let html = '<div class="col-lg-10"><div class="card shadow-lg"><div class="card-body">';
+    html += '<div class="d-flex justify-content-between align-items-center mb-4">';
+    html += '<div><h3 class="card-title mb-1 text-white">' + (stock.id || '') + ' ' + (stock.name || '') + '</h3>';
+    html += '<span class="update-time">最後更新：' + (stock.last_update || '-') + '</span>';
+    if (stock.probe_date) html += '<div class="update-time">分點參考日：' + stock.probe_date + '</div>';
+    html += '</div><div class="text-end"><span class="badge bg-warning text-dark mb-1">Top 6 核心大戶監控 (10日)</span>';
+    html += '<div class="' + statusCls + '">' + (stock.status || '') + '</div><div class="led-group mt-2">' + ledHtml + '</div></div></div>';
+
+    html += '<div class="metric-card mb-4" style="text-align:left; border:1px solid #333; background:#161616;">';
+    html += '<div class="metric-label">📌 Whale Trend Monitor</div>';
+    html += '<div style="font-size:1.55rem; font-weight:900; color:' + msColor(ms) + ';">' + msZh(ms) + '</div>';
+    if (mr.length) html += '<div class="mt-2">' + mr.slice(0,6).map(function(r){ return '<span class="tag-pill">' + r + '</span>'; }).join('') + '</div>';
+    html += '</div>';
+
+    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">20日集中度 (%)</div><div class="metric-value">' + c20 + '%</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">5日集中度 (%)</div><div class="metric-value">' + c5 + '%</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">主力走向</div><div class="metric-value" style="font-size:1.15rem;">' + trend + '</div></div></div></div>';
+
+    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">Geo Grade</div><div class="metric-value">' + geo + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Score</div><div class="metric-value">' + scoreU + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Final Grade</div><div class="metric-value">' + (sig.final_grade || '-') + '</div></div></div></div>';
+
+    html += '<div class="chart-container"><canvas id="whaleChartCanvas"></canvas></div>';
+
+    html += '<h6 class="text-warning mt-4">Top 6 大戶</h6><div class="table-responsive"><table class="table table-dark table-hover border-secondary"><thead><tr>';
+    html += '<th>券商</th><th>類型</th><th class="text-end">10日</th><th class="text-end">5日</th><th class="text-end">1日</th><th class="text-end">成本</th><th>縣市</th></tr></thead><tbody>';
+    if (top6.length === 0) html += '<tr><td colspan="7" class="text-center text-muted">暫無大戶數據</td></tr>';
+    else top6.forEach(function(b){
+      const c = b.color || colorMap[b.broker_name] || '#888';
+      const typeBadge = (b.broker_org_type==='foreign') ? '<span class="badge bg-secondary">外資</span>' : '<span class="badge bg-dark">本土</span>';
+      html += '<tr><td><span class="broker-chip" style="background:' + c + ';"></span><code>' + (b.broker_id||'') + '</code> <span style="color:' + c + '; font-weight:700;">' + (b.broker_name||'') + '</span></td>';
+      html += '<td>' + typeBadge + '</td>';
+      html += '<td class="text-end ' + (b.net_10d>0?'buy-row':'sell-row') + '">' + (b.net_10d!= null ? b.net_10d : '-') + '</td>';
+      html += '<td class="text-end ' + (b.net_5d>0?'buy-row':'sell-row') + '">' + (b.net_5d!= null ? b.net_5d : '-') + '</td>';
+      html += '<td class="text-end ' + (b.net_1d>0?'buy-row':'sell-row') + '">' + (b.net_1d!= null ? b.net_1d : '-') + '</td>';
+      html += '<td class="text-end text-warning">' + (b.avg_price != null ? 'NT$ ' + b.avg_price : '-') + '</td>';
+      html += '<td class="text-secondary">' + (b.city || '-') + '</td></tr>';
+    });
+    html += '</tbody></table></div></div></div></div>';
+
+    el('content').innerHTML = html;
+    el('loading').style.display = 'none';
+
+    Chart.defaults.color = '#cfcfcf';
+    Chart.defaults.font.family = "'Segoe UI', 'Microsoft JhengHei', sans-serif";
+    const labels = stock.history_labels || [];
+    const whaleData = stock.whale_data || [];
+    const totalValues = stock.total_whale_values || [];
+    const datasets = [];
+    whaleData.forEach(function(w){
+      datasets.push({ label: w.name||'N/A', data: w.values||[], borderColor: w.color||'#999', backgroundColor: w.color||'#999', borderWidth:2, tension:0, pointRadius:3, yAxisID:'y' });
+    });
+    datasets.push({ label:'總計', data: totalValues, yAxisID:'y2', borderColor:'#f1c40f', backgroundColor:'#f1c40f', borderWidth:4, borderDash:[5,5], tension:0, pointRadius:0 });
+    if (whaleChart) try{ whaleChart.destroy(); }catch(e){}
+    const ctx = document.getElementById('whaleChartCanvas');
+    if (ctx) whaleChart = new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y:  { position: 'left',  grid: { color: '#333' }, ticks: { color: '#aaa' } },
+          y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#aaa' } },
+          x:  { grid: { color: '#333' }, ticks: { color: '#aaa' } }
+        },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  function buildStockInfo(raw){
+    const sig = raw.signals || {};
+    const scoreU = sig.final_score != null ? sig.final_score : (sig.score != null ? sig.score : 0);
+    const c5 = sig.concentration_5d != null ? sig.concentration_5d : 0;
+    const c20 = sig.concentration_20d != null ? sig.concentration_20d : 0;
+    const trend = sig.trend || '觀察中';
+    const status = '✅ 籌碼訊號已載入 | Score=' + scoreU + ' | 5D=' + c5 + '% | 20D=' + c20 + '% | ' + trend;
+    return {
+      id: raw.stock_id,
+      name: raw.stock_name || raw.stock_id,
+      status: status,
+      last_update: raw.last_update || '',
+      probe_date: raw.probe_date || '',
+      signals: Object.assign({}, sig, { score_unified: scoreU, flags: buildFlags(sig) }),
+      history_labels: raw.history_labels || [],
+      whale_data: raw.whale_data || [],
+      total_whale_values: raw.total_whale_values || [],
+      top6_details: raw.top6_details || []
+    };
+  }
+
+  function loadStock(id){
+    el('loading').style.display = 'block';
+    el('loading').textContent = '載入中…';
+    fetch(DATA_BASE + '/' + id + '_whale_track.json')
+      .then(function(r){ if (!r.ok) throw new Error('無法載入 ' + id); return r.json(); })
+      .then(function(raw){
+        const stock = buildStockInfo(raw);
+        render(stock);
+      })
+      .catch(function(err){
+        el('loading').innerHTML = '<div class="text-warning">⚠️ ' + err.message + '。請確認已執行 scraper 並將 data/ 推送到 GitHub。</div>';
+        el('loading').style.display = 'block';
+      });
+  }
+
+  function loadManifest(){
+    fetch(DATA_BASE + '/manifest.json')
+      .then(function(r){
+        if (!r.ok) throw new Error('找不到 manifest.json');
+        return r.json();
+      })
+      .then(function(m){
+        manifest = m;
+        const sel = el('stockSelect');
+        const stocks = manifest.stocks && manifest.stocks.length ? manifest.stocks : (manifest.stock_ids || []).map(function(sid){ return { id: sid, name: sid }; });
+        sel.innerHTML = '';
+        if (stocks.length === 0){
+          sel.innerHTML = '<option value="">尚無股票（請執行 scraper 並 push）</option>';
+          el('loading').innerHTML = '<div class="text-muted">請在本機執行 <code>python scraper_chip.py --stock_id 6239</code> 並將 data/ 推送到 GitHub 後重新整理。</div>';
+          return;
+        }
+        stocks.forEach(function(s){
+          const o = document.createElement('option');
+          o.value = s.id;
+          o.textContent = s.id + ' ' + (s.name || '');
+          sel.appendChild(o);
+        });
+        sel.addEventListener('change', function(){ loadStock(sel.value); });
+        loadStock(sel.value);
+      })
+      .catch(function(err){
+        el('stockSelect').innerHTML = '<option value="">無法載入清單</option>';
+        el('loading').innerHTML = '<div class="text-warning">⚠️ ' + err.message + '。請確認倉庫中有 <code>data/manifest.json</code>（執行 scraper 會自動產生）。</div>';
+      });
+  }
+
+  loadManifest();
+})();
+</script>
+</body>
+</html>

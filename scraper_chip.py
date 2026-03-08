@@ -108,6 +108,27 @@ def run_strategy(stock_id: str, days: int = 20, throttle_sec: float = 0.6, verif
     boss_list_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
     print(f"💾 CSV輸出完成: {csv_path}")
 
+    # 更新 manifest.json（供 GitHub Pages 靜態 dashboard 讀取股票清單）
+    manifest_path = os.path.join(DATA_PATH, "manifest.json")
+    try:
+        if os.path.exists(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+        else:
+            manifest = {"stock_ids": [], "stocks": [], "updated": ""}
+        stock_ids = list(dict.fromkeys(manifest.get("stock_ids", []) + [stock_id]))
+        stocks_list = manifest.get("stocks", [])
+        by_id = {s["id"]: s for s in stocks_list if isinstance(s, dict) and s.get("id")}
+        by_id[stock_id] = {"id": stock_id, "name": stock_name}
+        manifest["stock_ids"] = sorted(stock_ids, key=lambda x: int(x) if str(x).isdigit() else 0)
+        manifest["stocks"] = [by_id[sid] for sid in manifest["stock_ids"]]
+        manifest["updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=2)
+        print(f"💾 Manifest 已更新: {manifest_path}")
+    except Exception as e:
+        print(f"⚠️ 更新 manifest 略過: {e}")
+
     sig = insight.get("signals", {})
     print(
         f"📊 完成：Score={sig.get('score',0)} | Trend={sig.get('trend','')} | "

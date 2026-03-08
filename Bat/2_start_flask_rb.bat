@@ -1,4 +1,5 @@
 @echo off
+REM 可選：僅在需要本機 Flask 儀表板或 /webhook 時使用。靜態版請用 GitHub Pages 開啟 index.html。
 cd /d C:\ngrok\RB_DataMining
 
 :: 寫入 Log
