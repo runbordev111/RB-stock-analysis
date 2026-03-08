@@ -71,8 +71,8 @@ For RUMBOR Data Mining
 - **資料與輔助腳本層**
   - `rawdata/`：公司清單、券商 master、geocode cache 等來源資料。
   - `data/`：pipeline 輸出（JSON/CSV）；`data/manifest.json` 由 scraper 自動更新，供靜態 dashboard 股票清單使用。
-  - `SubPY/`：更新券商主檔、geocode、`build_manifest.py`（可從現有 `data/*_whale_track.json` 產生 manifest）等。
-  - `bat/`：scraper、下載專案；可選：ngrok、Flask（僅在需要即時對外或 webhook 時使用）。
+  - `SubPY/`：更新券商主檔、geocode、`build_manifest.py`、**`analyze_signal_vs_returns.py`（Phase 1：Signal vs 未來報酬分析）** 等。
+  - `bat/`：scraper、下載專案、Phase 1 分析；可選：ngrok、Flask。
 
 
 ### 建議流程（摘要）
@@ -80,6 +80,15 @@ For RUMBOR Data Mining
 - **只顯示數據**：見上方「快速開始」→ 本機跑 scraper → push → 開 GitHub Pages → 用 `index.html` 靜態 dashboard 看數據。
 - **需要即時對外或 webhook**：再使用 `bat/1_ngrok_http.bat`、`bat/2_start_flask_rb.bat`。
 
+### Phase 1：把 Signal vs 未來報酬看清楚
+
+1. 先產生 backtest 樣本（需 FinMind token）：  
+   `python SubPY/backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20`
+2. 再執行 Phase 1 分析：  
+   `python SubPY/analyze_signal_vs_returns.py`  
+   或雙擊 `bat/4_analyze_signal_vs_returns.bat`
+3. 開啟 `data/signal_vs_returns_report.html` 檢視：Score 區間 / Monitor state 的未來 5/10/20 日報酬統計與分佈圖，據此調整策略門檻。
+
 ---
 
-python .\SubPY\backtest_signals_60d.py --stock_ids 2317 --days 60 --horizons 5,10,20
+python .\SubPY\backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20
