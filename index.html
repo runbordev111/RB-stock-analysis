@@ -40,12 +40,15 @@
     .kpi-hero.neg .kpi-num{ color:#e74c3c; }
     .kpi-hero .kpi-sub{ font-size:0.8rem; color:#888; }
     .text-info-dash{ color:#5bc0de; }
+    .dashboard-subtitle{ color:#9ca3af; font-size:0.95rem; }
+    .org-foreign{ color:#c084fc; font-weight:600; }
+    .org-local{ color:#84cc16; font-weight:600; }
   </style>
 </head>
 <body>
 <div class="container py-5">
-  <h1 class="mb-4 text-center" style="color:#f1c40f;">📊 RB 籌碼戰情室（靜態版）</h1>
-  <p class="text-center text-muted mb-4">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
+  <h1 class="mb-4 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室（程式版本）</h1>
+  <p class="text-center mb-4 dashboard-subtitle" id="dashboardSubtitle">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
 
   <div class="row justify-content-center mb-3">
     <div class="col-lg-10">
@@ -210,16 +213,17 @@
     html += '<div class="metric-card mt-2"><div class="metric-label">Persistence(20D)</div><div class="metric-value">' + (ez.coherence_persistence_20d != null ? (ez.coherence_persistence_20d*100).toFixed(1) + '%' : '-') + '</div></div></div></div>';
 
     var f5 = parseFloat(sig.foreign_net_5d) || 0, l5 = parseFloat(sig.local_net_5d) || 0;
-    html += '<div class="row mb-4 g-3"><div class="col-md-6"><div class="kpi-hero ' + (f5>=0?'pos':'neg') + '"><div class="kpi-title">外資主力 5日(張)</div><div class="kpi-num">' + (f5/1000).toFixed(1) + '</div><div class="kpi-sub">' + (f5>=0?'▲ 偏多':'▼ 偏空') + '</div></div></div>';
-    html += '<div class="col-md-6"><div class="kpi-hero ' + (l5>=0?'pos':'neg') + '"><div class="kpi-title">本土主力 5日(張)</div><div class="kpi-num">' + (l5/1000).toFixed(1) + '</div><div class="kpi-sub">' + (l5>=0?'▲ 偏多':'▼ 偏空') + '</div></div></div></div>';
+    html += '<div class="row mb-4 g-3"><div class="col-md-6"><div class="kpi-hero ' + (f5>=0?'pos':'neg') + '"><div class="kpi-title"><span class="org-foreign">外資</span>主力 5日(張)</div><div class="kpi-num">' + (f5/1000).toFixed(1) + '</div><div class="kpi-sub">' + (f5>=0?'▲ 偏多':'▼ 偏空') + '</div></div></div>';
+    html += '<div class="col-md-6"><div class="kpi-hero ' + (l5>=0?'pos':'neg') + '"><div class="kpi-title"><span class="org-local">本土</span>主力 5日(張)</div><div class="kpi-num">' + (l5/1000).toFixed(1) + '</div><div class="kpi-sub">' + (l5>=0?'▲ 偏多':'▼ 偏空') + '</div></div></div></div>';
 
     var topBuy = sig.top_buy_15 || [], topSell = sig.top_sell_15 || [];
+    function orgSpan(org){ return org === 'foreign' ? '<span class="org-foreign">外資</span>' : '<span class="org-local">本土</span>'; }
     html += '<h6 class="text-info-dash mt-4 mb-2">🏦 20日買方 Top15 / 賣方 Top15</h6><div class="row"><div class="col-md-6"><div class="table-responsive"><table class="table table-dark table-hover border-secondary"><thead><tr><th>買方Top15</th><th class="text-end">買賣超</th><th class="text-end">連買</th><th>縣市</th><th>外/本</th></tr></thead><tbody>';
     if (!topBuy.length) html += '<tr><td colspan="5" class="text-center text-muted">尚無</td></tr>';
-    else topBuy.forEach(function(r){ html += '<tr><td><code>' + (r.broker_id||'') + '</code> ' + (r.broker_name||'') + '</td><td class="text-end buy-row">' + (r.net_lot!= null ? r.net_lot : '-') + '</td><td class="text-end">' + (r.streak_buy!= null ? r.streak_buy : '-') + '</td><td class="text-secondary">' + (r.city||'-') + '</td><td class="text-secondary">' + (r.broker_org_type==='foreign'?'外資':'本土') + '</td></tr>'; });
+    else topBuy.forEach(function(r){ html += '<tr><td><code>' + (r.broker_id||'') + '</code> ' + (r.broker_name||'') + '</td><td class="text-end buy-row">' + (r.net_lot!= null ? r.net_lot : '-') + '</td><td class="text-end">' + (r.streak_buy!= null ? r.streak_buy : '-') + '</td><td class="text-secondary">' + (r.city||'-') + '</td><td>' + orgSpan(r.broker_org_type) + '</td></tr>'; });
     html += '</tbody></table></div></div><div class="col-md-6"><div class="table-responsive"><table class="table table-dark table-hover border-secondary"><thead><tr><th>賣方Top15</th><th class="text-end">買賣超</th><th class="text-end">連賣</th><th>縣市</th><th>外/本</th></tr></thead><tbody>';
     if (!topSell.length) html += '<tr><td colspan="5" class="text-center text-muted">尚無</td></tr>';
-    else topSell.forEach(function(r){ html += '<tr><td><code>' + (r.broker_id||'') + '</code> ' + (r.broker_name||'') + '</td><td class="text-end sell-row">' + (r.net_lot!= null ? r.net_lot : '-') + '</td><td class="text-end">' + (r.streak_sell!= null ? r.streak_sell : '-') + '</td><td class="text-secondary">' + (r.city||'-') + '</td><td class="text-secondary">' + (r.broker_org_type==='foreign'?'外資':'本土') + '</td></tr>'; });
+    else topSell.forEach(function(r){ html += '<tr><td><code>' + (r.broker_id||'') + '</code> ' + (r.broker_name||'') + '</td><td class="text-end sell-row">' + (r.net_lot!= null ? r.net_lot : '-') + '</td><td class="text-end">' + (r.streak_sell!= null ? r.streak_sell : '-') + '</td><td class="text-secondary">' + (r.city||'-') + '</td><td>' + orgSpan(r.broker_org_type) + '</td></tr>'; });
     html += '</tbody></table></div></div></div>';
 
     html += '<h6 class="text-info-dash mt-4 mb-2">📊 分點買賣超排行（Tornado）</h6><div class="row g-0 mb-4" style="border:1px solid #333; border-radius:12px; overflow:hidden;"><div class="col-6" style="background:#121212;"><div class="chart-container-bar" style="margin:0; padding:12px;"><canvas id="tornadoBuyCanvas"></canvas></div></div><div class="col-6" style="background:#121212; border-left:1px solid #333;"><div class="chart-container-bar" style="margin:0; padding:12px;"><canvas id="tornadoSellCanvas"></canvas></div></div></div>';
@@ -274,8 +278,36 @@
     if (rCtx && rValues.length) {
       charts.radar = new Chart(rCtx.getContext('2d'), {
         type: 'radar',
-        data: { labels: rLabels, datasets: [{ label: '強度', data: rValues, borderColor: '#f1c40f', backgroundColor: 'rgba(241,196,15,0.2)', borderWidth: 2 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 100, ticks: { color: '#aaa' }, grid: { color: '#333' }, pointLabels: { color: '#cfcfcf' } } } }
+        data: {
+          labels: rLabels,
+          datasets: [{
+            label: '主力強度綜合評分',
+            data: rValues,
+            borderColor: '#00f2ff',
+            backgroundColor: 'rgba(0, 242, 255, 0.15)',
+            pointBackgroundColor: '#00f2ff',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#00f2ff',
+            borderWidth: 3,
+            lineTension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#eee', font: { size: 14 } } } },
+          scales: {
+            r: {
+              min: 0,
+              max: 100,
+              grid: { color: 'rgba(255,255,255,0.08)' },
+              angleLines: { color: 'rgba(255,255,255,0.12)' },
+              ticks: { color: '#aaa', backdropColor: 'transparent', font: { size: 12 } },
+              pointLabels: { color: '#eee', font: { size: 14 } }
+            }
+          }
+        }
       });
     }
 
@@ -323,14 +355,14 @@
       charts.tornadoBuy = new Chart(tBuy.getContext('2d'), {
         type: 'bar',
         data: { labels: buyLabels, datasets: [{ label: '買超', data: buyVals, backgroundColor: '#84cc16', borderWidth: 0, barThickness: 14 }] },
-        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: maxAbs, grid: { color: '#2b2b2b' }, ticks: { color: '#9a9a9a' } }, y: { grid: { display: false }, ticks: { color: '#d0d0d0' } } }, plugins: { legend: { display: false } } }
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: maxAbs, reverse: true, grid: { color: '#2b2b2b' }, ticks: { color: '#9a9a9a' } }, y: { position: 'left', grid: { display: false }, ticks: { color: '#d0d0d0' } } }, plugins: { legend: { display: false } } }
       });
     }
     if (tSell && sellVals.length) {
       charts.tornadoSell = new Chart(tSell.getContext('2d'), {
         type: 'bar',
         data: { labels: sellLabels, datasets: [{ label: '賣超', data: sellVals, backgroundColor: '#e06a6a', borderWidth: 0, barThickness: 14 }] },
-        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: maxAbs, reverse: true, grid: { color: '#2b2b2b' }, ticks: { color: '#9a9a9a' } }, y: { position: 'right', grid: { display: false }, ticks: { color: '#d0d0d0' } } }, plugins: { legend: { display: false } } }
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { min: 0, max: maxAbs, grid: { color: '#2b2b2b' }, ticks: { color: '#9a9a9a' } }, y: { position: 'right', grid: { display: false }, ticks: { color: '#d0d0d0' } } }, plugins: { legend: { display: false } } }
       });
     }
   }
@@ -402,7 +434,17 @@
       });
   }
 
+  function applyVersion(){
+    var elm = el('dashboardTitle');
+    if (!elm) return;
+    fetch('Version.txt').then(function(r){ return r.ok ? r.text() : Promise.reject(); }).then(function(t){
+      var v = (t || '').trim().split(/\r?\n/)[0] || '';
+      if (v) elm.textContent = '📊 RB 籌碼戰情室（程式版本 ' + v + '）';
+    }).catch(function(){});
+  }
+
   loadManifest();
+  applyVersion();
 })();
 </script>
 </body>
