@@ -2,6 +2,9 @@
 # 目的：抓 FinMind 分點明細（TaiwanStockTradingDailyReport），輸出：
 #   ./data/{stock_id}_whale_track.json  （dashboard 使用）
 #   ./data/{stock_id}_boss_list.csv     （Top20 彙總表）
+#
+# 增量快取：每筆 TDR 存於 data/cache/tdr/{stock_id}/{date}.csv，
+# 已有快取的日期不再向 FinMind 請求，只抓缺失的日期（例如 2/27~3/10）。
 
 import os
 import time
@@ -11,24 +14,50 @@ import urllib3
 from datetime import datetime
 from dotenv import load_dotenv
 
+import pandas as pd
+
 from core.io.finmind_client import FinMindClient
 from core.services.adapter_tw import TaiwanStockAdapter
 from core.io.broker_master import load_broker_master_enriched
 from core.pipeline import analyze_whale_trajectory
-from core.pipeline import _load_company_geo_map  # ✅ 新增：強制載入公司經緯度主檔（warm-up）
+from core.pipeline import _load_company_geo_map
 
-# ✅ 建議：用 scraper_chip.py 所在位置當根目錄，避免 cwd 不同造成相對路徑失效
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-
 DATA_PATH = os.path.join(PROJECT_ROOT, "data")
 RAW_PATH = os.path.join(PROJECT_ROOT, "rawdata")
+CACHE_TDR_DIR = os.path.join(DATA_PATH, "cache", "tdr")
 
 os.makedirs(DATA_PATH, exist_ok=True)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-DATA_PATH = "./data"
-os.makedirs(DATA_PATH, exist_ok=True)
+
+def _tdr_cache_path(stock_id: str, date_str: str) -> str:
+    """data/cache/tdr/{stock_id}/{date}.csv"""
+    d = os.path.join(CACHE_TDR_DIR, str(stock_id))
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, f"{date_str}.csv")
+
+
+def _load_tdr_from_cache(stock_id: str, date_str: str) -> pd.DataFrame | None:
+    p = _tdr_cache_path(stock_id, date_str)
+    if not os.path.exists(p):
+        return None
+    try:
+        df = pd.read_csv(p, encoding="utf-8-sig")
+        if df.empty:
+            return None
+        df["date"] = date_str
+        return df
+    except Exception:
+        return None
+
+
+def _save_tdr_to_cache(stock_id: str, date_str: str, df: pd.DataFrame) -> None:
+    if df.empty:
+        return
+    p = _tdr_cache_path(stock_id, date_str)
+    df.to_csv(p, index=False, encoding="utf-8-sig")
 
 
 def run_strategy(
@@ -88,20 +117,36 @@ def run_strategy(
     if len(target_dates) < days:
         print(f"⚠️ 交易日不足 {days} 天，實際取得 {len(target_dates)} 天: {target_dates[0]} ~ {target_dates[-1]}")
 
-    # 2) 抓分點明細
+    # 2) 抓分點明細（增量：先查快取，沒有才向 FinMind 請求）
     stock_name = adapter.get_stock_name(stock_id)
-    print(f"🎯 開始追蹤 {stock_id} {stock_name} | 近 {len(target_dates)} 日分點...")
+    print(f"開始追蹤 {stock_id} {stock_name} | 近 {len(target_dates)} 日分點（增量快取：已有不重抓）...")
 
     frames = []
+    n_from_cache = 0
+    n_from_api = 0
     for d in target_dates:
-        report = adapter.get_daily_report(stock_id, d)
-        if not report.empty:
-            report["date"] = d
+        report = _load_tdr_from_cache(stock_id, d)
+        if report is not None and not report.empty:
             frames.append(report)
-            print(f"✅ 已載入 {d} 數據: {len(report)} rows")
+            n_from_cache += 1
+            print(f"  [cache] {d}: {len(report)} rows")
         else:
-            print(f"⚠️ {d} 分點數據為空（可能權限不足/尚未入庫/假日）")
-        time.sleep(throttle_sec)
+            report = adapter.get_daily_report(stock_id, d)
+            if not report.empty:
+                report = report.copy()
+                report["date"] = d
+                frames.append(report)
+                _save_tdr_to_cache(stock_id, d, report)
+                n_from_api += 1
+                print(f"  [API]   {d}: {len(report)} rows")
+            else:
+                print(f"  [skip]  {d}: 分點數據為空")
+            time.sleep(throttle_sec)
+
+    if n_from_cache > 0 or n_from_api > 0:
+        print(f"  -> cache {n_from_cache} days, fetched {n_from_api} days from API")
+    if n_from_api > 0 and n_from_cache == 0:
+        print("  -> First run: cache populated. Next run will only fetch new dates.")
 
     if not frames:
         print("❌ 全部日期分點都為空：請檢查 sponsor 權限或 token 是否正確。")

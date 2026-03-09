@@ -17,8 +17,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem Append log (under Bat folder)
-echo %date% %time% - Run [StartCenter] (scraper_chip) >> Bat\Log2.txt
+rem Append log (under bat folder)
+echo %date% %time% - Run [StartCenter] (scraper_chip) >> bat\Log2.txt
 
 rem Ensure venv exists; create if missing
 if not exist "venv\Scripts\activate.bat" (

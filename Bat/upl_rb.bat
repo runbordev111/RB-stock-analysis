@@ -19,8 +19,8 @@ if errorlevel 1 (
 
 echo Preparing to upload changes to msung-data-mining...
 
-rem Append log (stored under Bat\Log.txt)
-echo %date% %time% - Run [Backup Upload] (upl_rb) >> Bat\Log.txt
+rem Append log (stored under bat\Log.txt)
+echo %date% %time% - Run [Backup Upload] (upl_rb) >> bat\Log.txt
 
 rem Default local/remote branch
 set "REMOTE_BRANCH=msung-data-mining"

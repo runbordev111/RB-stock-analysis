@@ -88,9 +88,9 @@ echo.
 echo [5/5] Optional: upload changes to GitHub (upl_rb.bat)
 choice /M "Run upl_rb.bat to commit/push now?"
 if errorlevel 2 (
-    echo Skipping upload. You can run Bat\upl_rb.bat later.
+    echo Skipping upload. You can run bat\upl_rb.bat later.
 ) else (
-    call Bat\upl_rb.bat
+    call bat\upl_rb.bat
 )
 
 echo.

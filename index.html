@@ -50,19 +50,45 @@
   <h1 class="mb-4 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室（程式版本）</h1>
   <p class="text-center mb-4 dashboard-subtitle" id="dashboardSubtitle">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
 
-  <div class="row justify-content-center mb-3">
-    <div class="col-lg-10">
-      <label class="mb-0 fs-3 fw-bold text-white">切換股票：</label>
-      <select id="stockSelect" class="form-select form-select-lg w-auto bg-dark text-white border-secondary" style="font-size:1.75rem;">
-        <option value="">載入中…</option>
-      </select>
+  <ul class="nav nav-tabs mb-3" id="rbTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-dashboard" data-bs-toggle="tab"
+              data-bs-target="#panel-dashboard" type="button" role="tab">
+        Dashboard
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-phase1" data-bs-toggle="tab"
+              data-bs-target="#panel-phase1" type="button" role="tab">
+        Phase 1 分析
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="rbTabsContent">
+    <div class="tab-pane fade show active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+      <div class="row justify-content-center mb-3">
+        <div class="col-lg-10">
+          <label class="mb-0 fs-3 fw-bold text-white">切換股票：</label>
+          <select id="stockSelect" class="form-select form-select-lg w-auto bg-dark text-white border-secondary" style="font-size:1.75rem;">
+            <option value="">載入中…</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="content"></div>
+      <div id="loading" class="text-center text-muted py-5">選擇股票後將載入數據…</div>
+    </div>
+
+    <div class="tab-pane fade" id="panel-phase1" role="tabpanel" aria-labelledby="tab-phase1">
+      <iframe src="data/signal_vs_returns_report.html"
+              style="width:100%; height:80vh; border:none; margin-top:16px;"
+              title="Phase 1 Signal vs Returns Report"></iframe>
     </div>
   </div>
-
-  <div id="content"></div>
-  <div id="loading" class="text-center text-muted py-5">選擇股票後將載入數據…</div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function(){
   const DATA_BASE = 'data';
