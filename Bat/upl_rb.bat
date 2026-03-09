@@ -1,41 +1,63 @@
 @echo off
-cd /d C:\ngrok\RB_stock_analysis
+setlocal
 
-echo 🚀 Preparing to upload changes to msung-data-mining...
+rem Project root (same as Git repo)
+set "ROOT=C:\ngrok\RB-stock-analysis"
 
-:: 寫入 Log
-echo %date% %time% - Run [Backup Upload] (upl_rb) >> Log.txt
+if not exist "%ROOT%" (
+    echo Project root "%ROOT%" not found.
+    pause
+    exit /b 1
+)
 
-:: 本機預設開發分支與遠端分支
-set REMOTE_BRANCH=msung-data-mining
+cd /d "%ROOT%"
+if errorlevel 1 (
+    echo Failed to change directory to "%ROOT%".
+    pause
+    exit /b 1
+)
 
+echo Preparing to upload changes to msung-data-mining...
+
+rem Append log (stored under Bat\Log.txt)
+echo %date% %time% - Run [Backup Upload] (upl_rb) >> Bat\Log.txt
+
+rem Default local/remote branch
+set "REMOTE_BRANCH=msung-data-mining"
+
+rem Stage current changes (respecting .gitignore)
 git add .
 git status
-set BRANCH=
+
+set "BRANCH="
 for /f "tokens=*" %%i in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set BRANCH=%%i
 if "%BRANCH%"=="" set BRANCH=%REMOTE_BRANCH%
 
-git commit -m "V1.0.6 - %date% %time% Update (including logs)" 2>nul
+rem Create simple auto commit message (no fixed version number)
+git commit -m "%date% %time% - auto upload (upl_rb)" 2>nul
 if errorlevel 1 (
-  echo ⚠️ 無變更可 commit，或已是最新。
+    echo No changes to commit, or already up to date.
 ) else (
-  echo ✅ 已 commit。
+    echo Commit created.
 )
 
-git pull --rebase origin %REMOTE_BRANCH%
+rem Rebase with remote and autostash local changes
+git pull --rebase --autostash origin %REMOTE_BRANCH%
 if errorlevel 1 (
-  echo ⚠️ pull 失敗，請手動處理衝突後再執行一次。
-  pause
-  exit /b 1
+    echo Pull failed, please resolve conflicts and retry.
+    pause
+    exit /b 1
 )
 
-:: 推送到 origin msung-data-mining
+rem Push to origin msung-data-mining
 git push origin %BRANCH%:%REMOTE_BRANCH%
 if errorlevel 1 (
-  echo ❌ push 失敗，請確認遠端有 %REMOTE_BRANCH% 分支。
-  pause
-  exit /b 1
+    echo Push failed, please check remote branch %REMOTE_BRANCH%.
+    pause
+    exit /b 1
 )
 
-echo ✅ Upload and log update complete!
+echo Upload and log update complete!
 pause
+
+endlocal
