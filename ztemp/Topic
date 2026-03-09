@@ -1,26 +1,4 @@
-我建議接下來要改的地方（優先順序）
-1. 把 Phase 1「實際可跑」先補好（短期、務實）
-1-1. 確認 SubPY 資料夾在你本機存在
 
-目前 PowerShell 回報 SubPY 路徑不存在，這和專案設計不符。
-下一步我會：
-用 git 檢查 msung-data-mining 分支是否包含 SubPY/* 檔案。
-若有但本機沒看到 → 幫你用 git pull / git restore 把整個 SubPY 補回來。
-若遠端本來就沒有 → 直接在你本機建立 SubPY 資料夾並放入我們現在 Workspace 裡的三支腳本（backtest / analyze / ml）。
-1-2. 統一虛擬環境命名 & 啟動方式
-
-你的 prompt 現在是 (venv)，而我新的 bat 用的是 ven。
-這部分可以二選一：
-直接把 bat 改回用 venv；或
-把你現有的 venv 目錄重命名成 ven、以後所有 bat 都統一用 ven。
-我會偏向「用 project 專屬 ven」，讓 bat 可以完全自動建立 / 啟動，不依賴 user global 的 Python 安裝路徑。
-1-3. 修正 Phase 1 bat 的 Windows 編碼問題
-
-你看到的亂碼 隢???data\signal_vs_returns_report.html ... 就是 bat 裡中文 echo + codepage 不合。
-我可以：
-把關鍵訊息換成純 ASCII + 簡短英文/數字（保證不亂碼）；
-或在開始加 chcp 65001，但這有時會跟字型/終端機設定打架。
-建議優先確保「功能正常」，文字可以慢慢調整。
 2. Phase 2：真正做出 Broker archetype + 更完整 cross-sectional
 在你 Topic 裡這一段是 Phase 2 最有價值的升級，我會這樣拆：
 
