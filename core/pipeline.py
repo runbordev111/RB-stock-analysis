@@ -26,6 +26,7 @@ from core.signals.enhanced import compute_enhanced_signals
 from core.signals.distribution import compute_distribution_risk
 from core.signals.monitor import compute_monitor_state
 from core.signals.whale_extras import compute_turning_points, compute_whale_radar
+from core.broker_archetype import apply_broker_archetype
 
 
 # -----------------------------------------------------------------------------
@@ -92,7 +93,7 @@ def analyze_whale_trajectory(
 
     # Top6 details
     has_price = "price" in combined.columns
-    top6_details = []
+    top6_details: list[dict] = []
 
     # 先做一次清洗，避免型別/空白造成對不到
     combined["broker_id"] = combined["broker_id"].astype(str).str.strip()
@@ -126,7 +127,6 @@ def analyze_whale_trajectory(
                 avg_p = float((buy_only["buy"] * buy_only["price"]).sum() / buy_only["buy"].sum())
 
         meta = broker_map.get(bid, {}) or {}
-        print(f"🔎 TOP6 bid={bid} name={bname} in_broker_map={bool(meta)} meta_keys={list(meta.keys())[:6]}")
 
         top6_details.append(
             {
@@ -144,6 +144,10 @@ def analyze_whale_trajectory(
                 "streak_sell": ss,
             }
         )
+
+    # 套用 Broker archetype，補上 archetype_wave_score / archetype_label 等欄位
+    archetype_pack = apply_broker_archetype(top6_details)
+    top6_details = archetype_pack.get("top6_details", top6_details)
 
     # Top6 軌跡矩陣（累積 net）
     whale_detail = df_10d[df_10d["broker_id"].isin(top6_ids)].copy()
@@ -197,6 +201,9 @@ def analyze_whale_trajectory(
         "top_sell_15": top15_pack["top_sell_15"],
         **breadth_series_pack,
     }
+
+    # 將 broker archetype 的彙總指標灌入 signals
+    signals.update(archetype_pack.get("signals", {}))
 
     # === A. ΔMajorFlow20：20日買方 Top15 張數 - 賣方 Top15 張數 ===
     buy_sum_20 = 0.0

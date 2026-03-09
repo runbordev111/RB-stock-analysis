@@ -47,3 +47,51 @@ core/strategies/ml_score_blend.py，接受 signals +（未來會預測的）ml_s
 如果你沒特別偏好，我會建議 先從第 1 項開始：我直接幫你把 SubPY 在本機補齊、統一改成 ven 環境，
 然後你只要跑一次 3_scraper_chip.bat、再跑 4_analyze_signal_vs_returns.bat 就能看到完整 Phase 1 報表。
 你可以跟我說要不要我現在就幫你把 Phase 1 這塊修到「一鍵可跑」。
+
+
+//-----------------------------------------------
+我已經幫你把「Broker archetype（波段主力傾向）」這塊的基礎線路接好了，現在算是 Phase 2 的第一步。
+
+做了哪些事（後端）
+新增模組 core/broker_archetype.py
+
+針對 pipeline 算出的 top6_details，為每個券商算一個：
+archetype_wave_score：0～1，愈高愈像「波段主力」
+net_10d 越大（近 10 日淨買超）、streak_buy 越長、streak_sell 越短 → 分數越高。
+archetype_label：
+swing_leader：波段主力型（wave_score ≥ 0.7）
+distributor：連賣 + 大幅賣超
+flipper：進出頻繁但淨額接近 0
+mixed：其他情況
+同時彙總出幾個指標放進 signals：
+top6_avg_wave_score
+top6_max_wave_score
+top6_wave_leader_id
+top6_wave_leader_name
+在 core/pipeline.py 接上這個模組
+
+建好原本的 top6_details 後，呼叫 apply_broker_archetype(top6_details)：
+會把每個 top6 列上 archetype_wave_score / archetype_label。
+把彙總結果灌進 signals（之後 JSON / backtest 都看得到）。
+在 backtest CSV 中也輸出這些欄位
+
+sub-py/backtest_signals_60d.py 的 extract_signal_features 新增：
+top6_avg_wave_score
+top6_max_wave_score
+top6_wave_leader_id
+top6_wave_leader_name
+之後跑 3b_backtest_signals_60d.bat 或 5_run_all_for_stock.bat，新的 CSV 就會包含這些欄位，可以在 Phase 1 報表 / Notebook 裡做統計。
+現在你可以怎麼用
+正常跑一次你的流程，例如：
+
+cd C:\ngrok\RB-stock-analysis\bat
+.\5_run_all_for_stock.bat   # 輸入幾檔你關注的股票
+跑完後：
+
+data/{stock}_whale_track.json 裡的 top6_details 會多出 archetype_wave_score / archetype_label。
+data/backtest_signals_60d.csv 會多出那四個 broker archetype 彙總欄位。
+你可以先用 Excel / pandas 看看：
+
+當 top6_avg_wave_score 高時，未來 10/20 日報酬的分佈是不是比較好？
+哪些券商經常當作 top6_wave_leader_id 出現。
+目前還沒在前端 Dashboard 上顯示這個分數（先把「算分 & 寫出來」接好），等你看過這套分數覺得有感，再來決定要不要在畫面多一個「Top6 波段主力權重」的卡片，我再幫你加 UI。

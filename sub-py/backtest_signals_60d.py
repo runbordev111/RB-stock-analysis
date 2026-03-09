@@ -176,6 +176,12 @@ def extract_signal_features(
     row["avg_turnover_20d"] = risk.get("avg_turnover_20d")
     row["invalid_flag"] = risk.get("invalid_flag")
 
+    # Broker archetype（Top6 波段主力傾向）
+    row["top6_avg_wave_score"] = signals.get("top6_avg_wave_score")
+    row["top6_max_wave_score"] = signals.get("top6_max_wave_score")
+    row["top6_wave_leader_id"] = signals.get("top6_wave_leader_id")
+    row["top6_wave_leader_name"] = signals.get("top6_wave_leader_name")
+
     return row
 
 
