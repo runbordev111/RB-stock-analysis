@@ -6,13 +6,13 @@ echo 🚀 Preparing to upload changes...
 :: 寫入 Log
 echo %date% %time% - Run [Backup Upload] (upl_rb) >> Log.txt
 
-:: 先 add / commit，再 pull，最後 push（遠端用 main，本機可能是 master）
+:: 先 add / commit，再 pull，最後 push（遠端與本機皆為 main）
 set REMOTE_BRANCH=main
 git add .
 git status
 set BRANCH=
 for /f "tokens=*" %%i in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set BRANCH=%%i
-if "%BRANCH%"=="" set BRANCH=master
+if "%BRANCH%"=="" set BRANCH=main
 
 git commit -m "V1.0.6 - %date% %time% Update (including logs)" 2>nul
 if errorlevel 1 (
@@ -28,7 +28,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-:: 本機分支可能為 master，遠端為 main：推送到 origin main
+:: 推送到 origin main
 git push origin %BRANCH%:%REMOTE_BRANCH%
 if errorlevel 1 (
   echo ❌ push 失敗，請確認遠端有 %REMOTE_BRANCH% 分支。

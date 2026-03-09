@@ -16,7 +16,7 @@ if not exist "%REPO%" (
 ) else (
     echo 📂 Existing repo detected, pulling latest...
     cd /d "%REPO%"
-    git pull --rebase origin master
+    git pull --rebase origin main
 )
 echo.
 echo ✅ Synchronization complete!
