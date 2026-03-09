@@ -1,13 +1,14 @@
 @echo off
 cd /d C:\ngrok\RB_stock_analysis
 
-echo 🚀 Preparing to upload changes to feature/data-mining...
+echo 🚀 Preparing to upload changes to msung-data-mining...
 
 :: 寫入 Log
 echo %date% %time% - Run [Backup Upload] (upl_rb) >> Log.txt
 
-:: 先 add / commit，再 pull，最後 push（遠端與本機皆為 feature/data-mining）
-set REMOTE_BRANCH=feature/data-mining
+:: 本機預設開發分支與遠端分支
+set REMOTE_BRANCH=msung-data-mining
+
 git add .
 git status
 set BRANCH=
@@ -28,7 +29,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-:: 推送到 origin feature/data-mining
+:: 推送到 origin msung-data-mining
 git push origin %BRANCH%:%REMOTE_BRANCH%
 if errorlevel 1 (
   echo ❌ push 失敗，請確認遠端有 %REMOTE_BRANCH% 分支。
