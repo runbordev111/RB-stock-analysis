@@ -47,7 +47,10 @@
 </head>
 <body>
 <div class="container py-5">
-  <h1 class="mb-4 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室（程式版本）</h1>
+  <h1 class="mb-2 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室（程式版本）</h1>
+  <div class="text-center mb-2">
+    <span class="badge bg-secondary" id="versionBadge">版本：載入中…</span>
+  </div>
   <p class="text-center mb-4 dashboard-subtitle" id="dashboardSubtitle">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
 
   <ul class="nav nav-tabs mb-3" id="rbTabs" role="tablist">
@@ -120,6 +123,22 @@
   function msColor(ms){
     const c = { DISTRIBUTION:'#e74c3c', FADING:'#f39c12', ACCUMULATION:'#2ecc71', MARKUP:'#f1c40f' };
     return c[ms] || '#999';
+  }
+
+  function applyVersion(){
+    var badge = document.getElementById('versionBadge');
+    if (!badge) return;
+    fetch('Version.txt').then(function(r){
+      if (!r.ok) return null;
+      return r.text();
+    }).then(function(t){
+      if (!t) return;
+      var v = t.trim();
+      if (!v) return;
+      badge.textContent = '版本：' + v;
+      var elm = document.getElementById('dashboardTitle');
+      if (elm) elm.textContent = '📊 RB 籌碼戰情室（程式版本 ' + v + '）';
+    }).catch(function(){});
   }
 
   function render(stock){
@@ -458,15 +477,6 @@
         el('stockSelect').innerHTML = '<option value="">無法載入清單</option>';
         el('loading').innerHTML = '<div class="text-warning">⚠️ ' + err.message + '。請確認倉庫中有 <code>data/manifest.json</code>（執行 scraper 會自動產生）。</div>';
       });
-  }
-
-  function applyVersion(){
-    var elm = el('dashboardTitle');
-    if (!elm) return;
-    fetch('Version.txt').then(function(r){ return r.ok ? r.text() : Promise.reject(); }).then(function(t){
-      var v = (t || '').trim().split(/\r?\n/)[0] || '';
-      if (v) elm.textContent = '📊 RB 籌碼戰情室（程式版本 ' + v + '）';
-    }).catch(function(){});
   }
 
   loadManifest();
