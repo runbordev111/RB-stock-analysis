@@ -31,7 +31,13 @@ DATA_PATH = "./data"
 os.makedirs(DATA_PATH, exist_ok=True)
 
 
-def run_strategy(stock_id: str, days: int = 20, throttle_sec: float = 0.6, verify_ssl: bool = True, debug_tv: bool = False):
+def run_strategy(
+    stock_id: str,
+    days: int = 20,
+    throttle_sec: float = 0.6,
+    verify_ssl: bool = True,
+    debug_tv: bool = False,
+):
     load_dotenv()
     token = os.getenv("FINMIND_API_TOKEN", "").strip()
     if not token:
@@ -42,6 +48,33 @@ def run_strategy(stock_id: str, days: int = 20, throttle_sec: float = 0.6, verif
     adapter = TaiwanStockAdapter(client)
     broker_map = load_broker_master_enriched(RAW_PATH)
 
+    # 事先計算交易日，供快取判斷與 pipeline 使用
+    all_dates = adapter.get_trading_dates(lookback=180)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    available_dates = [d for d in all_dates if d < today_str]
+
+    if not available_dates:
+        print("❌ 無法取得交易日，終止。")
+        return
+
+    last_trading_date = available_dates[-1]
+
+    # 簡單快取：若已有同一檔股票、且 probe_date 已是最近交易日，就不用重抓 FinMind
+    json_path = os.path.join(DATA_PATH, f"{stock_id}_whale_track.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+            existing_probe = str(existing.get("probe_date", "")).strip()
+        except Exception:
+            existing_probe = ""
+
+        if existing_probe == last_trading_date:
+            print(
+                f"✅ {stock_id} 已有最新資料（probe_date={existing_probe}），"
+                "略過 FinMind 抓取與重新分析。"
+            )
+            return
 
     # ✅ Warm-up：強制用絕對路徑載入公司總部經緯度（避免 pipeline 用相對路徑失敗）
     _load_company_geo_map(
@@ -49,14 +82,8 @@ def run_strategy(stock_id: str, days: int = 20, throttle_sec: float = 0.6, verif
         otc_csv=os.path.join(RAW_PATH, "OTC_Company_V2.csv"),
     )
 
-    # 1) 交易日（排除今天）
-    all_dates = adapter.get_trading_dates(lookback=180)
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    target_dates = [d for d in all_dates if d < today_str][-days:]
-
-    if not target_dates:
-        print("❌ 無法取得交易日，終止。")
-        return
+    # 1) 交易日（排除今天），只取最近 days 天
+    target_dates = available_dates[-days:]
 
     if len(target_dates) < days:
         print(f"⚠️ 交易日不足 {days} 天，實際取得 {len(target_dates)} 天: {target_dates[0]} ~ {target_dates[-1]}")
