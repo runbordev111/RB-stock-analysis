@@ -179,6 +179,55 @@ def extract_signal_features(
     return row
 
 
+def _add_cross_sectional_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Phase 2：在 backtest 輸出中加入 cross-sectional percentile 特徵。
+
+    對每個 trade_date，針對關鍵指標計算當日橫截面的百分位排名（0~1）。
+    例如：score_pctile 表示該日 score 在所有樣本中的相對位置。
+    """
+    if df.empty:
+        return df
+
+    if "trade_date" not in df.columns:
+        return df
+
+    df = df.copy()
+
+    cols = [
+        "score",
+        "final_score",
+        "tv_score",
+        "regime_score",
+        "concentration_5d",
+        "concentration_20d",
+        "netbuy_1d_lot",
+        "netbuy_5d_lot",
+        "netbuy_20d_lot",
+        "breadth_5d",
+        "breadth_20d",
+        "pressure_ratio_5d",
+        "pressure_ratio_20d",
+        "top15_buy_stability_10d",
+        "top15_buy_stability_20d",
+    ]
+
+    for c in cols:
+        if c not in df.columns:
+            continue
+        try:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+        except Exception:
+            continue
+        df[f"{c}_pctile"] = (
+            df.groupby("trade_date")[c]
+            .rank(pct=True, method="average")
+            .astype(float)
+        )
+
+    return df
+
+
 def run_backtest(
     stock_ids: List[str],
     days: int,
@@ -315,6 +364,9 @@ def run_backtest(
             print("📎 為新檔案，直接寫入。")
 
     df_out = df_out.sort_values(["stock_id", "trade_date"]).reset_index(drop=True)
+
+    # Phase 2：加上 cross-sectional percentile 特徵
+    df_out = _add_cross_sectional_features(df_out)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df_out.to_csv(output_path, index=False, encoding="utf-8-sig")
     print(f"💾 輸出完成：{output_path} （{len(df_out)} 筆，{df_out['stock_id'].nunique()} 檔股票）")
