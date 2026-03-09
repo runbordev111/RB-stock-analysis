@@ -10,6 +10,8 @@ For RUMBOR Data Mining
 
 若**只要在網頁上看籌碼數據**、不需要即時對外或 TradingView webhook，建議用 **GitHub Pages 靜態版**：
 
+> 資料來自 GitHub 倉庫 `data/`，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。
+
 1. **本機產生/更新資料**  
    ```bash
    python scraper_chip.py --stock_id 6239

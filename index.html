@@ -47,11 +47,10 @@
 </head>
 <body>
 <div class="container py-5">
-  <h1 class="mb-2 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室（程式版本）</h1>
+  <h1 class="mb-2 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室</h1>
   <div class="text-center mb-2">
     <span class="badge bg-secondary" id="versionBadge">版本：載入中…</span>
   </div>
-  <p class="text-center mb-4 dashboard-subtitle" id="dashboardSubtitle">資料來自 GitHub 倉庫 data/，不需 ngrok 或本機 Flask。Push 更新後重新整理即可。</p>
 
   <ul class="nav nav-tabs mb-3" id="rbTabs" role="tablist">
     <li class="nav-item" role="presentation">
@@ -147,8 +146,6 @@
       var v = t.trim();
       if (!v) return;
       badge.textContent = '版本：' + v;
-      var elm = document.getElementById('dashboardTitle');
-      if (elm) elm.textContent = '📊 RB 籌碼戰情室（程式版本 ' + v + '）';
     }).catch(function(){});
   }
 
