@@ -1,8 +1,9 @@
 @echo off
 setlocal
 
-rem Project root (same as Git repo)
-set "ROOT=C:\ngrok\RB-stock-analysis"
+rem Project root (auto-detect)
+set "ROOT=%~dp0.."
+for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 
 if not exist "%ROOT%" (
     echo Project root "%ROOT%" not found.

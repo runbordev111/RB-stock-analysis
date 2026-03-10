@@ -75,7 +75,8 @@ def run_strategy(
 
     client = FinMindClient(token=token, verify_ssl=verify_ssl)
     adapter = TaiwanStockAdapter(client)
-    broker_map = load_broker_master_enriched(RAW_PATH)
+    # 與 dashboard / backtest 一致：一律從 data/ 讀取券商主檔（broker_master_enriched.csv）
+    broker_map = load_broker_master_enriched(DATA_PATH)
 
     # 事先計算交易日，供快取判斷與 pipeline 使用
     all_dates = adapter.get_trading_dates(lookback=180)

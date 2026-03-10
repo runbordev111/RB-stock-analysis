@@ -29,6 +29,8 @@ if PROJECT_ROOT not in sys.path:
 from core.io.finmind_client import FinMindClient
 from core.services.adapter_tw import TaiwanStockAdapter
 from core.pipeline import analyze_whale_trajectory
+from core.io.broker_master import load_broker_master_enriched
+from core.pipeline import _load_company_geo_map
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -251,6 +253,8 @@ def run_backtest(
 
     client = FinMindClient(token=token, verify_ssl=verify_ssl)
     adapter = TaiwanStockAdapter(client)
+    # 與原本行為保持一致：從 data/ 讀 broker_master（而不是 rawdata/）
+    broker_map = load_broker_master_enriched(DATA_PATH)
 
     rows: List[Dict[str, Any]] = []
 
@@ -314,7 +318,7 @@ def run_backtest(
             insight, _ = analyze_whale_trajectory(
                 frames=frames,
                 target_dates=window_dates,
-                broker_map={},  # 預設不用 geo meta；geo_signals 仍會嘗試使用主檔
+                broker_map=broker_map,
                 adapter=adapter,
                 stock_id=stock_id,
                 debug_tv=debug_tv,

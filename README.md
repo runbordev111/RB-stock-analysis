@@ -25,7 +25,7 @@ For RUMBOR Data Mining
 4. **開啟 GitHub Pages**  
    倉庫 → **Settings** → **Pages** → **Source** 選「Deploy from a branch」→ Branch 選 `main`（或你的預設分支）→ Folder 選 **/ (root)** → Save。
 5. **開啟 Dashboard**  
-   網址：`https://<你的 GitHub 帳號>.github.io/RB_DataMining/`  
+   網址：`https://<你的 GitHub 帳號>.github.io/RB-stock-analysis/`  
    之後只要 push 更新 `data/`，重新整理頁面即可看到最新數據。
 
 **不需要**執行 `ngrok http ...` 或 `python rb_tv_app.py`。  
@@ -64,7 +64,7 @@ For RUMBOR Data Mining
 - **Web 與視覺化層**
   - **靜態 Dashboard（推薦，不需本機伺服器）**  
     - `index.html`：單頁靜態儀表板，直接讀取 `data/*_whale_track.json` 與 `data/manifest.json`。  
-    - 部署方式：將專案 push 到 GitHub，開啟 **GitHub Pages**（Settings → Pages → Source: 分支根目錄），即可在 `https://<username>.github.io/RB_DataMining/` 查看。**不需 ngrok、不需執行 Flask**，只要在本地跑 scraper、push 更新，重新整理網頁即可看到最新數據。
+    - 部署方式：將專案 push 到 GitHub，開啟 **GitHub Pages**（Settings → Pages → Source: 分支根目錄），即可在 `https://<username>.github.io/RB-stock-analysis/` 查看。**不需 ngrok、不需執行 Flask**，只要在本地跑 scraper、push 更新，重新整理網頁即可看到最新數據。
   - `rb_tv_app.py`（Flask，可選）：
     - `/dashboard/`：讀取 `*_whale_track.json` + 券商 master，完整版儀表板。
     - `/webhook`：串 TradingView 訊號 + TWSE T86，Telegram 推播。

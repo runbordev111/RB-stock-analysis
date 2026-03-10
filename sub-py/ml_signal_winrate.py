@@ -40,6 +40,43 @@ DATA_PATH = os.path.join(PROJECT_ROOT, "data")
 MODELS_PATH = os.path.join(DATA_PATH, "models")
 DEFAULT_CSV = os.path.join(DATA_PATH, "backtest_signals_60d.csv")
 
+def _time_split_df(
+    df: pd.DataFrame,
+    test_size: float,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Time-based split by trade_date (ascending) to avoid look-ahead from random shuffle.
+    If trade_date is missing, fallback to simple tail split by row order.
+    """
+    if df is None or df.empty:
+        return df.iloc[0:0].copy(), df.iloc[0:0].copy()
+
+    df = df.copy()
+    if "trade_date" in df.columns:
+        df["trade_date"] = df["trade_date"].astype(str)
+        if "stock_id" in df.columns:
+            df["stock_id"] = df["stock_id"].astype(str)
+            df = df.sort_values(["trade_date", "stock_id"]).reset_index(drop=True)
+        else:
+            df = df.sort_values(["trade_date"]).reset_index(drop=True)
+    else:
+        df = df.reset_index(drop=True)
+
+    n = len(df)
+    n_test = int(round(n * float(test_size)))
+    n_test = max(1, min(n - 1, n_test))
+    cut = n - n_test
+    return df.iloc[:cut].copy(), df.iloc[cut:].copy()
+
+
+def _safe_auc(y_true: np.ndarray, prob: np.ndarray) -> float:
+    try:
+        if len(np.unique(y_true)) < 2:
+            return float("nan")
+        return float(roc_auc_score(y_true, prob))
+    except Exception:
+        return float("nan")
+
 
 def _select_feature_columns(df: pd.DataFrame) -> List[str]:
     """
@@ -68,6 +105,7 @@ def _select_feature_columns(df: pd.DataFrame) -> List[str]:
 def _prepare_xy(
     df: pd.DataFrame,
     horizon: int,
+    feat_cols: List[str] | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     col_ret = f"ret_{horizon}d"
     if col_ret not in df.columns:
@@ -82,11 +120,14 @@ def _prepare_xy(
     # 建立二元標籤：未來報酬 > 0 → 1，<=0 → 0
     y = (df[col_ret] > 0).astype(int).values
 
-    feat_cols = _select_feature_columns(df)
-    if not feat_cols:
-        raise ValueError("找不到可用的數值特徵欄位。")
+    if feat_cols is None:
+        feat_cols = _select_feature_columns(df)
+        if not feat_cols:
+            raise ValueError("找不到可用的數值特徵欄位。")
 
-    X = df[feat_cols].apply(pd.to_numeric, errors="coerce").fillna(0.0).values
+    # Ensure consistent feature set/order across train/test
+    work = df.reindex(columns=feat_cols, fill_value=0.0).copy()
+    X = work.apply(pd.to_numeric, errors="coerce").fillna(0.0).values
     return X, y, feat_cols
 
 
@@ -99,6 +140,7 @@ def _save_artifacts(
     acc_test: float,
     auc_train: float,
     auc_test: float,
+    split_method: str,
 ) -> None:
     """存模型、特徵重要度 CSV、簡易 HTML 報表到 data/models 與 data/。"""
     os.makedirs(MODELS_PATH, exist_ok=True)
@@ -132,6 +174,7 @@ table{{border-collapse:collapse;width:100%;max-width:600px;}} th,td{{border:1px 
 th{{background:#333;color:#f1c40f;}} .metric{{margin:12px 0;}}</style></head>
 <body>
 <h1>Phase 3：ML 勝率估計（ret_{horizon}d）</h1>
+<div class="metric">Split = {split_method}</div>
 <div class="metric">Train accuracy = {acc_train:.3f} &nbsp;|&nbsp; Test accuracy = {acc_test:.3f}</div>
 <div class="metric">Train AUC = {auc_train:.3f} &nbsp;|&nbsp; Test AUC = {auc_test:.3f}</div>
 <h2>Top 30 特徵重要度</h2>
@@ -147,6 +190,7 @@ def run_ml(
     horizon: int,
     test_size: float,
     random_state: int,
+    split: str,
     save_artifacts: bool = True,
 ) -> None:
     if RandomForestClassifier is None:
@@ -158,11 +202,34 @@ def run_ml(
         return
 
     df = pd.read_csv(csv_path, dtype={"stock_id": str}, encoding="utf-8-sig")
-    X, y, feat_cols = _prepare_xy(df, horizon=horizon)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
+    # Filter valid labels first, then split (avoid empty test after dropna)
+    col_ret = f"ret_{horizon}d"
+    if col_ret not in df.columns:
+        print(f"❌ CSV 中沒有欄位 {col_ret}，請先在 backtest 時產出此 horizon。")
+        return
+    df[col_ret] = pd.to_numeric(df[col_ret], errors="coerce")
+    df = df.dropna(subset=[col_ret]).copy()
+    if df.empty:
+        print(f"❌ {col_ret} 沒有有效樣本。")
+        return
+
+    if split == "time":
+        df_train, df_test = _time_split_df(df, test_size=test_size)
+    else:
+        # random split (legacy behavior; avoid stratify failures on edge cases)
+        df_train, df_test = train_test_split(
+            df, test_size=test_size, random_state=random_state, shuffle=True
+        )
+
+    # Pick a stable feature set from full filtered df
+    feat_cols = _select_feature_columns(df)
+    if not feat_cols:
+        print("❌ 找不到可用的數值特徵欄位。")
+        return
+
+    X_train, y_train, _ = _prepare_xy(df_train, horizon=horizon, feat_cols=feat_cols)
+    X_test, y_test, _ = _prepare_xy(df_test, horizon=horizon, feat_cols=feat_cols)
 
     clf = RandomForestClassifier(
         n_estimators=200,
@@ -182,15 +249,12 @@ def run_ml(
     acc_train = accuracy_score(y_train, pred_train)
     acc_test = accuracy_score(y_test, pred_test)
 
-    try:
-        auc_train = roc_auc_score(y_train, prob_train)
-        auc_test = roc_auc_score(y_test, prob_test)
-    except Exception:
-        auc_train = float("nan")
-        auc_test = float("nan")
+    auc_train = _safe_auc(y_train, prob_train)
+    auc_test = _safe_auc(y_test, prob_test)
 
     print(f"\n===== Phase 3：ML 勝率估計（ret_{horizon}d）=====")
-    print(f"樣本數：total={len(y)}, train={len(y_train)}, test={len(y_test)}")
+    print(f"樣本數：total={len(y_train)+len(y_test)}, train={len(y_train)}, test={len(y_test)}")
+    print(f"Split = {split}")
     print(f"Train accuracy = {acc_train:.3f}, AUC = {auc_train:.3f}")
     print(f"Test  accuracy = {acc_test:.3f}, AUC = {auc_test:.3f}")
     print(f"Train win_rate(pred=1) = {y_train[pred_train == 1].mean() if (pred_train == 1).any() else float('nan'):.3f}")
@@ -207,6 +271,7 @@ def run_ml(
         _save_artifacts(
             clf, feat_cols, importances, horizon,
             acc_train, acc_test, auc_train, auc_test,
+            split_method=split,
         )
 
 
@@ -235,6 +300,13 @@ def main() -> None:
         type=float,
         default=0.3,
         help="測試集比例（預設 0.3）",
+    )
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="time",
+        choices=["time", "random"],
+        help="資料切分方式：time=依 trade_date 時序切分（預設）；random=隨機切分",
     )
     parser.add_argument(
         "--random_state",
@@ -266,6 +338,7 @@ def main() -> None:
             horizon=h,
             test_size=args.test_size,
             random_state=args.random_state,
+            split=args.split,
             save_artifacts=not args.no_save,
         )
 

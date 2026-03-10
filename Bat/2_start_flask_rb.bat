@@ -4,8 +4,9 @@ setlocal
 REM Optional: only needed when running local Flask dashboard or /webhook.
 REM For static dashboard, just open index.html via GitHub Pages.
 
-rem Project root (same as Git repo)
-set "ROOT=C:\ngrok\RB-stock-analysis"
+rem Project root (auto-detect)
+set "ROOT=%~dp0.."
+for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 
 if not exist "%ROOT%" (
     echo Project root "%ROOT%" not found.

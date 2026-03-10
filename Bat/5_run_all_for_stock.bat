@@ -1,8 +1,9 @@
 @echo off
 setlocal
 
-rem Project root (same as Git repo)
-set "ROOT=C:\ngrok\RB-stock-analysis"
+rem Project root (auto-detect)
+set "ROOT=%~dp0.."
+for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 
 if not exist "%ROOT%" (
     echo Project root "%ROOT%" not found.
@@ -94,7 +95,16 @@ if errorlevel 1 (
 )
 
 echo.
-echo [6/6] Optional: upload changes to GitHub (upl_rb.bat)
+echo [6/7] Smoke check outputs (smoke_check_artifacts.py) ...
+python sub-py\smoke_check_artifacts.py
+if errorlevel 1 (
+    echo Smoke check failed. Please fix issues above before upload.
+    pause
+    exit /b 1
+)
+
+echo.
+echo [7/7] Optional: upload changes to GitHub (upl_rb.bat)
 choice /M "Run upl_rb.bat to commit/push now?"
 if errorlevel 2 (
     echo Skipping upload. You can run bat\upl_rb.bat later.

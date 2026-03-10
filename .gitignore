@@ -1,10 +1,12 @@
 __pycache__/
 *.pyc
 .env
+*.pfx
 
 # 忽略虛擬環境資料夾
 venv/
 .venv/
+ven/
 
 # 忽略 Python 快取
 __pycache__/
@@ -12,9 +14,13 @@ __pycache__/
 
 # 忽略暫存資料與記錄檔
 *.log
+Log*.txt
+ztemp/_stash/
 
 # 忽略 TDR 快取（data/cache/tdr 為 scraper 增量抓取用，不納入版控）
 data/cache/
 
 # Phase 3 ML 模型（二進位檔，可選納入版控則移除此行）
 data/models/*.pkl
+data/_tmp_*.txt
+patterns/
