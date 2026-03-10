@@ -66,6 +66,12 @@
       </button>
     </li>
     <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-phase3" data-bs-toggle="tab"
+              data-bs-target="#panel-phase3" type="button" role="tab">
+        Phase 3 ML 勝率
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-archetype" data-bs-toggle="tab"
               data-bs-target="#panel-archetype" type="button" role="tab">
         Broker Archetype
@@ -93,6 +99,26 @@
               style="width:100%; height:80vh; border:none; margin-top:16px;"
               title="Phase 1 Signal vs Returns Report"></iframe>
     </div>
+
+    <div class="tab-pane fade" id="panel-phase3" role="tabpanel" aria-labelledby="tab-phase3">
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+        <div class="text-muted">選擇 horizon：</div>
+        <div class="btn-group" role="group" aria-label="Phase 3 horizon">
+          <button type="button" class="btn btn-sm btn-outline-warning" data-phase3-horizon="5">ret_5d</button>
+          <button type="button" class="btn btn-sm btn-outline-warning" data-phase3-horizon="10">ret_10d</button>
+          <button type="button" class="btn btn-sm btn-outline-warning active" data-phase3-horizon="20">ret_20d</button>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary ms-auto" id="phase3OpenNewTab" target="_blank" rel="noopener">新視窗開啟</a>
+      </div>
+      <iframe id="phase3Frame"
+              src="data/ml_winrate_report_ret20d.html"
+              style="width:100%; height:80vh; border:none; margin-top:12px;"
+              title="Phase 3 ML Winrate Report"></iframe>
+      <div class="text-muted mt-2" style="font-size:0.9rem;">
+        若顯示空白：請先在本機執行 <code>bat/7_phase3_ml_winrate.bat</code> 產生 <code>data/ml_winrate_report_ret*.html</code>，並推送到 GitHub Pages。
+      </div>
+    </div>
+
     <div class="tab-pane fade" id="panel-archetype" role="tabpanel" aria-labelledby="tab-archetype">
       <div id="archetypeContent" class="mt-3 text-muted">
         請先在 Dashboard 分頁選擇股票，這裡會顯示 Top6 券商的 Broker archetype 分析。
@@ -526,6 +552,28 @@
 
   loadManifest();
   applyVersion();
+
+  (function initPhase3(){
+    var frame = document.getElementById('phase3Frame');
+    var open = document.getElementById('phase3OpenNewTab');
+    if (!frame || !open) return;
+
+    function setHorizon(h){
+      var src = 'data/ml_winrate_report_ret' + h + 'd.html';
+      frame.src = src;
+      open.href = src;
+      document.querySelectorAll('[data-phase3-horizon]').forEach(function(btn){
+        btn.classList.toggle('active', String(btn.getAttribute('data-phase3-horizon')) === String(h));
+      });
+    }
+
+    open.href = frame.getAttribute('src') || 'data/ml_winrate_report_ret20d.html';
+    document.querySelectorAll('[data-phase3-horizon]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        setHorizon(btn.getAttribute('data-phase3-horizon'));
+      });
+    });
+  })();
 })();
 </script>
 </body>

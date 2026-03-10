@@ -1,0 +1,105 @@
+Phase 3: ML winrate estimation (from backtest_signals_60d.csv)...
+
+===== Phase 3：ML 勝率估計（ret_5d）=====
+樣本數：total=326, train=228, test=98
+Train accuracy = 0.982, AUC = 0.998
+Test  accuracy = 0.735, AUC = 0.801
+Train win_rate(pred=1) = 0.979
+Test  win_rate(pred=1) = 0.778
+
+Top 20 feature importance:
+pressure_ratio_20d                        0.0485
+concentration_20d                         0.0474
+enh_cost_high                             0.0427
+top15_buy_stability_20d                   0.0389
+enh_coherence_slope_5d                    0.0357
+sell_count_5d                             0.0344
+concentration_5d                          0.0334
+atr_pct_20d                               0.0333
+enh_coherence_today                       0.0321
+top15_buy_stability_10d                   0.0320
+breadth_5d                                0.0320
+final_score_pctile                        0.0305
+sell_count_20d                            0.0301
+enh_cost_low                              0.0298
+avg_turnover_20d                          0.0277
+breadth_ratio_5d                          0.0270
+buy_count_20d                             0.0267
+breadth_ratio_20d                         0.0267
+buy_count_5d                              0.0266
+enh_cost_deviation                        0.0262
+
+Saving artifacts...
+  Model saved: C:\ngrok\RB-stock-analysis\data\models\ml_winrate_ret5d.pkl
+  Feature importance CSV: C:\ngrok\RB-stock-analysis\data\ml_feature_importance_ret5d.csv
+  Report HTML: C:\ngrok\RB-stock-analysis\data\ml_winrate_report_ret5d.html
+
+===== Phase 3：ML 勝率估計（ret_10d）=====
+樣本數：total=296, train=207, test=89
+Train accuracy = 0.990, AUC = 1.000
+Test  accuracy = 0.876, AUC = 0.936
+Train win_rate(pred=1) = 0.994
+Test  win_rate(pred=1) = 0.913
+
+Top 20 feature importance:
+enh_cost_high                             0.0552
+enh_cost_low                              0.0471
+atr_pct_20d                               0.0466
+enh_cost_deviation                        0.0420
+avg_turnover_20d                          0.0420
+sell_count_20d                            0.0379
+pressure_ratio_20d                        0.0360
+top15_buy_stability_20d                   0.0350
+pressure_ratio_5d                         0.0347
+concentration_20d                         0.0324
+breadth_ratio_20d                         0.0309
+concentration_5d                          0.0302
+top15_buy_stability_10d                   0.0298
+buy_count_5d                              0.0283
+breadth_20d                               0.0282
+enh_coherence_slope_5d                    0.0268
+netbuy_20d_lot                            0.0267
+buy_count_20d                             0.0225
+final_score                               0.0225
+breadth_ratio_5d                          0.0221
+
+Saving artifacts...
+  Model saved: C:\ngrok\RB-stock-analysis\data\models\ml_winrate_ret10d.pkl
+  Feature importance CSV: C:\ngrok\RB-stock-analysis\data\ml_feature_importance_ret10d.csv
+  Report HTML: C:\ngrok\RB-stock-analysis\data\ml_winrate_report_ret10d.html
+
+===== Phase 3：ML 勝率估計（ret_20d）=====
+樣本數：total=236, train=165, test=71
+Train accuracy = 1.000, AUC = 1.000
+Test  accuracy = 0.958, AUC = 0.989
+Train win_rate(pred=1) = 1.000
+Test  win_rate(pred=1) = 0.949
+
+Top 20 feature importance:
+enh_coherence_max_20d                     0.1012
+enh_cost_low                              0.0892
+enh_cost_high                             0.0782
+buy_count_5d                              0.0391
+breadth_ratio_20d                         0.0388
+buy_count_20d                             0.0354
+sell_count_20d                            0.0350
+avg_turnover_20d                          0.0332
+breadth_20d                               0.0322
+enh_cost_deviation                        0.0298
+top6_max_wave_score                       0.0282
+atr_pct_20d                               0.0270
+top6_avg_wave_score                       0.0245
+concentration_20d                         0.0217
+breadth_5d                                0.0216
+score                                     0.0214
+pressure_ratio_20d                        0.0213
+sell_count_5d                             0.0209
+pressure_ratio_5d                         0.0200
+netbuy_20d_lot                            0.0179
+
+Saving artifacts...
+  Model saved: C:\ngrok\RB-stock-analysis\data\models\ml_winrate_ret20d.pkl
+  Feature importance CSV: C:\ngrok\RB-stock-analysis\data\ml_feature_importance_ret20d.csv
+  Report HTML: C:\ngrok\RB-stock-analysis\data\ml_winrate_report_ret20d.html
+
+Output: data\models\*.pkl, data\ml_feature_importance_ret*.csv, data\ml_winrate_report_ret*.html
