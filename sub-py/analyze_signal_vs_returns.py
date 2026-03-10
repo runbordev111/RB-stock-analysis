@@ -57,6 +57,24 @@ def load_and_prepare(csv_path: str) -> pd.DataFrame:
         df["monitor_state"] = df["monitor_state"].fillna("NEUTRAL").astype(str)
     else:
         df["monitor_state"] = "NEUTRAL"
+
+    # Inst × Margin × SBL regime（若有新欄位則分段，否則全部標為 OTHER）
+    if (
+        "inst_bull_no_short_pressure_flag" in df.columns
+        and "inst_bear_with_short_pressure_flag" in df.columns
+    ):
+        def _regime_row(row):
+            b = int(row.get("inst_bull_no_short_pressure_flag") or 0)
+            s = int(row.get("inst_bear_with_short_pressure_flag") or 0)
+            if b == 1:
+                return "BULL_NO_SHORT"
+            if s == 1:
+                return "BEAR_WITH_SHORT"
+            return "OTHER"
+
+        df["inst_regime_flag"] = df.apply(_regime_row, axis=1)
+    else:
+        df["inst_regime_flag"] = "OTHER"
     return df
 
 
@@ -76,7 +94,7 @@ def stats_by_group(df: pd.DataFrame, group_col: str, value_col: str) -> pd.DataF
 
 
 def run_analysis(df: pd.DataFrame, ret_cols: list) -> dict:
-    results = {"by_score": {}, "by_state": {}, "summary": []}
+    results = {"by_score": {}, "by_state": {}, "by_inst_regime": {}, "summary": []}
     df_clean = df.dropna(subset=ret_cols, how="all").copy()
     if df_clean.empty:
         return results
@@ -92,6 +110,13 @@ def run_analysis(df: pd.DataFrame, ret_cols: list) -> dict:
         order = ["ACCUMULATION", "MARKUP", "FADING", "DISTRIBUTION", "NEUTRAL"]
         by_state = by_state.reindex([s for s in order if s in by_state.index])
         results["by_state"][col] = by_state
+
+        # Inst × Margin × SBL regime（BULL_NO_SHORT / BEAR_WITH_SHORT / OTHER）
+        if "inst_regime_flag" in df_clean.columns:
+            by_regime = stats_by_group(df_clean, "inst_regime_flag", col)
+            order_regime = ["BULL_NO_SHORT", "BEAR_WITH_SHORT", "OTHER"]
+            by_regime = by_regime.reindex([s for s in order_regime if s in by_regime.index])
+            results["by_inst_regime"][col] = by_regime
 
     results["n_total"] = len(df_clean)
     results["n_with_returns"] = df_clean[ret_cols].notna().any(axis=1).sum()
@@ -148,6 +173,19 @@ def write_html_report(
         if "ret_by_state_" in fn:
             name = os.path.basename(fn)
             html.append(f"<p><img class=\"fig\" src=\"{rel_fig}/{name}\" alt=\"{name}\"/></p>")
+
+    # By Inst × Margin × SBL Regime
+    html.append("<h2>三、依 Inst × Margin × SBL Regime（策略池候選）</h2>")
+    for col in RET_COLS:
+        if col not in results.get("by_inst_regime", {}):
+            continue
+        tb = results["by_inst_regime"][col]
+        if tb.empty:
+            continue
+        html.append(f"<h3>{col}</h3>")
+        html.append(tb.to_html(classes=\"n\", float_format=\"%.4f\").replace(\"<th>\", \"<th class=\\\"n\\\">\"))
+        html.append(\"<br/>\")
+    html.append(\"<p class=\\\"meta\\\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>\")
 
     html.append("</body></html>")
     with open(output_path, "w", encoding="utf-8") as f:

@@ -108,7 +108,6 @@
           <button type="button" class="btn btn-sm btn-outline-warning" data-phase3-horizon="10">ret_10d</button>
           <button type="button" class="btn btn-sm btn-outline-warning active" data-phase3-horizon="20">ret_20d</button>
         </div>
-        <a class="btn btn-sm btn-outline-secondary ms-auto" id="phase3OpenNewTab" target="_blank" rel="noopener">新視窗開啟</a>
       </div>
       <iframe id="phase3Frame"
               src="data/ml_winrate_report_ret20d.html"
@@ -279,6 +278,10 @@
     html += '<div class="metric-label mt-1">條件1: inst_three_net_20d>0 且 融資/借券壓力正常 → 偏多 regime</div>';
     html += '<div class="metric-label">條件2: inst_three_net_20d<0 且 借券壓力放大 → 偏空+空軍壓力 regime</div>';
     html += '</div></div></div>';
+
+    // Inst vs SBL 雙軸圖（20日）
+    html += '<h6 class="text-info-dash mt-3 mb-2">📈 三大法人 vs 借券量（20日，雙軸）</h6>';
+    html += '<div class="chart-container-mini" style="height:260px;"><canvas id="instSblCanvas"></canvas></div>';
 
     var st10 = sig.top15_buy_stability_10d != null ? (sig.top15_buy_stability_10d*100).toFixed(1) + '%' : '-';
     var st20 = sig.top15_buy_stability_20d != null ? (sig.top15_buy_stability_20d*100).toFixed(1) + '%' : '-';
@@ -485,6 +488,62 @@
       });
     }
 
+    // Inst vs SBL dual-axis chart (20D)
+    var instSblCtx = document.getElementById('instSblCanvas');
+    if (instSblCtx) {
+      var instVal = instThree20;
+      var sblVal = Number(sig.sbl_volume_20d || 0);
+      charts.instSbl = new Chart(instSblCtx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: ['20日視窗'],
+          datasets: [
+            {
+              label: '三大法人合計(張)',
+              data: [instVal],
+              yAxisID: 'y_inst',
+              backgroundColor: instVal >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(249,115,22,0.7)'
+            },
+            {
+              label: '借券成交量(張)',
+              data: [sblVal],
+              type: 'line',
+              yAxisID: 'y_sbl',
+              borderColor: '#38bdf8',
+              backgroundColor: '#38bdf8',
+              borderWidth: 3,
+              tension: 0.1,
+              pointRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y_inst: {
+              position: 'left',
+              grid: { color: '#333' },
+              ticks: { color: '#aaa' }
+            },
+            y_sbl: {
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#aaa' }
+            },
+            x: {
+              grid: { color: '#333' },
+              ticks: { color: '#aaa' }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+
     var buyList = (sig.top_buy_15 || []).slice(0, 15).sort(function(a,b){ return (b.net_lot||0) - (a.net_lot||0); });
     var sellList = (sig.top_sell_15 || []).slice(0, 15).sort(function(a,b){ return (a.net_lot||0) - (b.net_lot||0); });
     var buyLabels = buyList.map(function(r){ return (r.broker_id||'') + ' ' + (r.broker_name||''); });
@@ -582,19 +641,16 @@
 
   (function initPhase3(){
     var frame = document.getElementById('phase3Frame');
-    var open = document.getElementById('phase3OpenNewTab');
-    if (!frame || !open) return;
+    if (!frame) return;
 
     function setHorizon(h){
       var src = 'data/ml_winrate_report_ret' + h + 'd.html';
       frame.src = src;
-      open.href = src;
       document.querySelectorAll('[data-phase3-horizon]').forEach(function(btn){
         btn.classList.toggle('active', String(btn.getAttribute('data-phase3-horizon')) === String(h));
       });
     }
 
-    open.href = frame.getAttribute('src') || 'data/ml_winrate_report_ret20d.html';
     document.querySelectorAll('[data-phase3-horizon]').forEach(function(btn){
       btn.addEventListener('click', function(){
         setHorizon(btn.getAttribute('data-phase3-horizon'));
