@@ -73,8 +73,8 @@ For RUMBOR Data Mining
 - **資料與輔助腳本層**
   - `rawdata/`：公司清單、券商 master、geocode cache 等來源資料。
   - `data/`：pipeline 輸出（JSON/CSV）；`data/manifest.json` 由 scraper 自動更新，供靜態 dashboard 股票清單使用。
-  - `SubPY/`：更新券商主檔、geocode、`build_manifest.py`、**`analyze_signal_vs_returns.py`（Phase 1：Signal vs 未來報酬分析）** 等。
-  - `bat/`：scraper、下載專案、Phase 1 分析；可選：ngrok、Flask。
+  - `sub-py/`：更新券商主檔、geocode、`build_manifest.py`、**`analyze_signal_vs_returns.py`（Phase 1）**、**`ml_signal_winrate.py`（Phase 3 ML 勝率）** 等。
+  - `bat/`：scraper、下載專案、Phase 1 / Phase 3 分析；可選：ngrok、Flask。
 
 
 ### 建議流程（摘要）
@@ -85,12 +85,27 @@ For RUMBOR Data Mining
 ### Phase 1：把 Signal vs 未來報酬看清楚
 
 1. 先產生 backtest 樣本（需 FinMind token）：  
-   `python SubPY/backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20`
+   `python sub-py/backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20`
 2. 再執行 Phase 1 分析：  
-   `python SubPY/analyze_signal_vs_returns.py`  
+   `python sub-py/analyze_signal_vs_returns.py`  
    或雙擊 `bat/4_analyze_signal_vs_returns.bat`
 3. 開啟 `data/signal_vs_returns_report.html` 檢視：Score 區間 / Monitor state 的未來 5/10/20 日報酬統計與分佈圖，據此調整策略門檻。
 
+### Phase 3：ML 勝率估計（整合）
+
+從 `data/backtest_signals_60d.csv` 用 RandomForest 估計「訊號 → 未來報酬 > 0」的勝率，並產出模型與特徵重要度供後續 pipeline 或報表使用。
+
+1. **一鍵流程（含 Phase 3）**：雙擊 `bat/5_run_all_for_stock.bat`，輸入股票代號與 lookback 天數，跑完會自動執行 Phase 1 + Phase 3。
+2. **僅跑 Phase 3**（需先有 backtest CSV）：  
+   `python sub-py/ml_signal_winrate.py --horizons 5,10,20`  
+   或雙擊 `bat/7_phase3_ml_winrate.bat`
+3. **產出**：
+   - `data/models/ml_winrate_ret5d.pkl`、`ret10d`、`ret20d`：訓練好的模型
+   - `data/ml_feature_importance_ret{N}d.csv`：特徵重要度排序
+   - `data/ml_winrate_report_ret{N}d.html`：簡易 HTML 報表（accuracy / AUC / Top 30 特徵）
+
+依賴：`pip install scikit-learn joblib`（已列入 `requirements.txt`）。
+
 ---
 
-python .\SubPY\backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20
+python .\sub-py\backtest_signals_60d.py --stock_ids 2338 --days 60 --horizons 5,10,20

@@ -51,7 +51,7 @@ if "%DAYS%"=="" (
 )
 
 echo.
-echo [1/5] Running scraper_chip.py for %STOCK_IDS% (days=%DAYS%) ...
+echo [1/6] Running scraper_chip.py for %STOCK_IDS% (days=%DAYS%) ...
 for %%S in (%STOCK_IDS%) do (
     echo --- Running scraper_chip.py for %%S ---
     python scraper_chip.py --stock_id %%S --days %DAYS%
@@ -63,11 +63,11 @@ for %%S in (%STOCK_IDS%) do (
 )
 
 echo.
-echo [2/5] Rebuilding data\manifest.json ...
+echo [2/6] Rebuilding data\manifest.json ...
 python sub-py\build_manifest.py
 
 echo.
-echo [3/5] Running backtest_signals_60d.py ...
+echo [3/6] Running backtest_signals_60d.py ...
 python sub-py\backtest_signals_60d.py --stock_ids %STOCK_IDS% --days %DAYS% --horizons 5,10,20
 if errorlevel 1 (
     echo backtest_signals_60d.py failed. Please check the error above.
@@ -76,7 +76,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [4/5] Running Phase 1 analysis (analyze_signal_vs_returns.py) ...
+echo [4/6] Running Phase 1 analysis (analyze_signal_vs_returns.py) ...
 python sub-py\analyze_signal_vs_returns.py
 if errorlevel 1 (
     echo analyze_signal_vs_returns.py failed. Please check the error above.
@@ -85,7 +85,16 @@ if errorlevel 1 (
 )
 
 echo.
-echo [5/5] Optional: upload changes to GitHub (upl_rb.bat)
+echo [5/6] Running Phase 3 ML winrate (ml_signal_winrate.py, horizons 5,10,20) ...
+python sub-py\ml_signal_winrate.py --horizons 5,10,20
+if errorlevel 1 (
+    echo ml_signal_winrate.py failed. Install scikit-learn and joblib: pip install scikit-learn joblib
+    pause
+    exit /b 1
+)
+
+echo.
+echo [6/6] Optional: upload changes to GitHub (upl_rb.bat)
 choice /M "Run upl_rb.bat to commit/push now?"
 if errorlevel 2 (
     echo Skipping upload. You can run bat\upl_rb.bat later.

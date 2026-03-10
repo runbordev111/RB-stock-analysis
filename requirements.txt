@@ -45,3 +45,7 @@ line-bot-sdk
 
 # (可選) 用於回測/技術分析若你之後會需要
 ta
+
+# Phase 3 ML 勝率估計
+scikit-learn
+joblib

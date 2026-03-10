@@ -4,13 +4,15 @@ Phase 3：簡單 ML — 從 backtest_signals_60d.csv 估計 pattern 的歷史勝
 功能：
 - 從 backtest_signals_60d.csv 載入樣本（含 signals + ret_5d/ret_10d/ret_20d）
 - 建立二元標籤：未來 N 日報酬 > 0 → 1，否則 0
-- 使用簡單的樹模型（RandomForestClassifier）或 LogisticRegression 建一個 baseline 模型
+- 使用簡單的樹模型（RandomForestClassifier）建 baseline 模型
 - 輸出：
-    - 訓練/驗證集的 accuracy / ROC-AUC / win_rate
-    - 重要特徵排序（feature importance 或係數）
+    - 訓練/驗證集的 accuracy / ROC-AUC / win_rate（終端 + HTML）
+    - 模型存成 data/models/ml_winrate_ret{N}d.pkl
+    - 特徵重要度存成 data/ml_feature_importance_ret{N}d.csv 與 HTML 報表
 
 使用方式：
-    python SubPY/ml_signal_winrate.py --csv data/backtest_signals_60d.csv --horizon 10
+    python sub-py/ml_signal_winrate.py --csv data/backtest_signals_60d.csv --horizon 10
+    python sub-py/ml_signal_winrate.py --horizons 5,10,20   # 一次跑多個 horizon
 """
 
 import argparse
@@ -24,15 +26,18 @@ try:
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.metrics import accuracy_score, roc_auc_score
     from sklearn.model_selection import train_test_split
+    import joblib
 except ImportError:
     RandomForestClassifier = None  # type: ignore[assignment]
     accuracy_score = None  # type: ignore[assignment]
     roc_auc_score = None  # type: ignore[assignment]
     train_test_split = None  # type: ignore[assignment]
+    joblib = None  # type: ignore[assignment]
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(PROJECT_ROOT, "data")
+MODELS_PATH = os.path.join(DATA_PATH, "models")
 DEFAULT_CSV = os.path.join(DATA_PATH, "backtest_signals_60d.csv")
 
 
@@ -85,11 +90,64 @@ def _prepare_xy(
     return X, y, feat_cols
 
 
+def _save_artifacts(
+    clf,
+    feat_cols: List[str],
+    importances: np.ndarray,
+    horizon: int,
+    acc_train: float,
+    acc_test: float,
+    auc_train: float,
+    auc_test: float,
+) -> None:
+    """存模型、特徵重要度 CSV、簡易 HTML 報表到 data/models 與 data/。"""
+    os.makedirs(MODELS_PATH, exist_ok=True)
+
+    # 模型
+    if joblib is not None:
+        pkl_path = os.path.join(MODELS_PATH, f"ml_winrate_ret{horizon}d.pkl")
+        joblib.dump(clf, pkl_path)
+        print(f"  Model saved: {pkl_path}")
+
+    # 特徵重要度 CSV
+    imp_df = pd.DataFrame(
+        {"feature": feat_cols, "importance": importances}
+    ).sort_values("importance", ascending=False)
+    csv_path = os.path.join(DATA_PATH, f"ml_feature_importance_ret{horizon}d.csv")
+    imp_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    print(f"  Feature importance CSV: {csv_path}")
+
+    # 簡易 HTML 報表
+    html_path = os.path.join(DATA_PATH, f"ml_winrate_report_ret{horizon}d.html")
+    rows = imp_df.head(30).to_dict("records")
+    rows_html = "".join(
+        f'<tr><td>{r["feature"]}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
+        for r in rows
+    )
+    html = f"""<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><title>Phase 3 ML 勝率報告 ret_{horizon}d</title>
+<style>body{{font-family:Segoe UI,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:20px;}}
+table{{border-collapse:collapse;width:100%;max-width:600px;}} th,td{{border:1px solid #444;padding:8px;text-align:left;}}
+th{{background:#333;color:#f1c40f;}} .metric{{margin:12px 0;}}</style></head>
+<body>
+<h1>Phase 3：ML 勝率估計（ret_{horizon}d）</h1>
+<div class="metric">Train accuracy = {acc_train:.3f} &nbsp;|&nbsp; Test accuracy = {acc_test:.3f}</div>
+<div class="metric">Train AUC = {auc_train:.3f} &nbsp;|&nbsp; Test AUC = {auc_test:.3f}</div>
+<h2>Top 30 特徵重要度</h2>
+<table><thead><tr><th>Feature</th><th class="text-end">Importance</th></tr></thead><tbody>{rows_html}</tbody></table>
+</body></html>"""
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"  Report HTML: {html_path}")
+
+
 def run_ml(
     csv_path: str,
     horizon: int,
     test_size: float,
     random_state: int,
+    save_artifacts: bool = True,
 ) -> None:
     if RandomForestClassifier is None:
         print("❌ 未安裝 scikit-learn，請先執行：pip install scikit-learn")
@@ -138,12 +196,18 @@ def run_ml(
     print(f"Train win_rate(pred=1) = {y_train[pred_train == 1].mean() if (pred_train == 1).any() else float('nan'):.3f}")
     print(f"Test  win_rate(pred=1) = {y_test[pred_test == 1].mean() if (pred_test == 1).any() else float('nan'):.3f}")
 
-    # 特徵重要度
     importances = clf.feature_importances_
     order = np.argsort(importances)[::-1]
     print("\nTop 20 feature importance:")
     for idx in order[:20]:
         print(f"{feat_cols[idx]:40s}  {importances[idx]:.4f}")
+
+    if save_artifacts:
+        print("\nSaving artifacts...")
+        _save_artifacts(
+            clf, feat_cols, importances, horizon,
+            acc_train, acc_test, auc_train, auc_test,
+        )
 
 
 def main() -> None:
@@ -157,8 +221,14 @@ def main() -> None:
     parser.add_argument(
         "--horizon",
         type=int,
-        default=10,
-        help="使用哪一個未來報酬欄位（例如 5/10/20 → 使用 ret_10d）",
+        default=None,
+        help="單一 horizon（例如 10 → ret_10d）",
+    )
+    parser.add_argument(
+        "--horizons",
+        type=str,
+        default=None,
+        help="多個 horizon，逗號分隔（例如 5,10,20），與 --horizon 二擇一",
     )
     parser.add_argument(
         "--test_size",
@@ -172,18 +242,32 @@ def main() -> None:
         default=42,
         help="隨機種子（預設 42）",
     )
+    parser.add_argument(
+        "--no-save",
+        action="store_true",
+        help="不寫出模型與報表（僅終端輸出）",
+    )
 
     args = parser.parse_args()
     csv_path = args.csv
     if not os.path.isabs(csv_path):
-        csv_path = os.path.join(DATA_PATH, csv_path)
+        csv_path = os.path.normpath(os.path.join(PROJECT_ROOT, csv_path))
 
-    run_ml(
-        csv_path=csv_path,
-        horizon=args.horizon,
-        test_size=args.test_size,
-        random_state=args.random_state,
-    )
+    if args.horizons:
+        horizons = [int(h.strip()) for h in args.horizons.split(",") if h.strip()]
+    elif args.horizon is not None:
+        horizons = [args.horizon]
+    else:
+        horizons = [10]
+
+    for h in horizons:
+        run_ml(
+            csv_path=csv_path,
+            horizon=h,
+            test_size=args.test_size,
+            random_state=args.random_state,
+            save_artifacts=not args.no_save,
+        )
 
 
 if __name__ == "__main__":

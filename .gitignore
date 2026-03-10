@@ -15,3 +15,6 @@ __pycache__/
 
 # 忽略 TDR 快取（data/cache/tdr 為 scraper 增量抓取用，不納入版控）
 data/cache/
+
+# Phase 3 ML 模型（二進位檔，可選納入版控則移除此行）
+data/models/*.pkl
