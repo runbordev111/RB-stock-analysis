@@ -253,6 +253,33 @@
     html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">5日 NetBuy(張)</div><div class="metric-value">' + (sig.netbuy_5d_lot != null ? sig.netbuy_5d_lot : '-') + '</div></div></div>';
     html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">20日 NetBuy(張)</div><div class="metric-value">' + (sig.netbuy_20d_lot != null ? sig.netbuy_20d_lot : '-') + '</div></div></div></div>';
 
+    // 三大法人 × 融資 × 借券 Regime 卡片
+    var instThree20 = Number(sig.inst_three_net_20d || 0);
+    var marginFlag = Number(sig.margin_risk_flag || 0);
+    var sblFlag = Number(sig.sbl_short_pressure_flag || 0);
+    var bullNoShort = Number(sig.inst_bull_no_short_pressure_flag || 0);
+    var bearWithShort = Number(sig.inst_bear_with_short_pressure_flag || 0);
+    var regimeTag = '中性觀察';
+    var regimeColor = '#9ca3af';
+    if (bullNoShort === 1) {
+      regimeTag = '法人偏多且無明顯空軍壓力';
+      regimeColor = '#22c55e';
+    } else if (bearWithShort === 1) {
+      regimeTag = '法人偏空且借券壓力放大';
+      regimeColor = '#f97316';
+    }
+    html += '<div class="row mb-4 g-3"><div class="col-md-6"><div class="metric-card" style="text-align:left;">';
+    html += '<div class="metric-label">三大法人 20日合計(張)</div>';
+    html += '<div class="metric-value" style="font-size:1.3rem;color:' + (instThree20>=0 ? '#22c55e' : '#f97316') + ';">' + instThree20 + '</div>';
+    html += '<div class="metric-label mt-1">融資壓力: ' + (marginFlag>0 ? '偏高' : '正常') + ' | 借券壓力: ' + (sblFlag>0 ? '放大' : '正常') + '</div>';
+    html += '</div></div>';
+    html += '<div class="col-md-6"><div class="metric-card" style="text-align:left;">';
+    html += '<div class="metric-label">Inst × Margin × SBL Regime</div>';
+    html += '<div class="metric-value" style="font-size:1.25rem;color:' + regimeColor + ';">' + regimeTag + '</div>';
+    html += '<div class="metric-label mt-1">條件1: inst_three_net_20d>0 且 融資/借券壓力正常 → 偏多 regime</div>';
+    html += '<div class="metric-label">條件2: inst_three_net_20d<0 且 借券壓力放大 → 偏空+空軍壓力 regime</div>';
+    html += '</div></div></div>';
+
     var st10 = sig.top15_buy_stability_10d != null ? (sig.top15_buy_stability_10d*100).toFixed(1) + '%' : '-';
     var st20 = sig.top15_buy_stability_20d != null ? (sig.top15_buy_stability_20d*100).toFixed(1) + '%' : '-';
     var pr5 = sig.pressure_ratio_5d != null ? sig.pressure_ratio_5d.toFixed(3) : '-';

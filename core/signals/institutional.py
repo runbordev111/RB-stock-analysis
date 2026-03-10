@@ -199,5 +199,20 @@ def compute_institutional_and_margin_signals(
         out["sbl_short_pressure_ratio_20d"] = 0.0
         out["sbl_short_pressure_flag"] = 0
 
+    # --- 綜合 regime flag（給策略池 / 風控用） ---
+    inst_three_20 = float(out.get("inst_three_net_20d") or 0.0)
+    margin_flag = int(out.get("margin_risk_flag") or 0)
+    sbl_flag = int(out.get("sbl_short_pressure_flag") or 0)
+
+    # 條件 1：三大法人 20 日合計偏多，且融資/借券壓力都不明顯
+    out["inst_bull_no_short_pressure_flag"] = 1 if (
+        inst_three_20 > 0 and margin_flag <= 0 and sbl_flag <= 0
+    ) else 0
+
+    # 條件 2：三大法人 20 日偏空，且借券壓力放大
+    out["inst_bear_with_short_pressure_flag"] = 1 if (
+        inst_three_20 < 0 and sbl_flag >= 1
+    ) else 0
+
     return out
 

@@ -187,6 +187,8 @@ def extract_signal_features(
         "sbl_volume_60d",
         "sbl_short_pressure_ratio_20d",
         "sbl_short_pressure_flag",
+        "inst_bull_no_short_pressure_flag",
+        "inst_bear_with_short_pressure_flag",
     ]:
         row[k] = signals.get(k)
 
