@@ -492,56 +492,70 @@
     var instSblCtx = document.getElementById('instSblCanvas');
     if (instSblCtx) {
       var instVal = instThree20;
-      var sblVal = Number(sig.sbl_volume_20d || 0);
-      charts.instSbl = new Chart(instSblCtx.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: ['20日視窗'],
-          datasets: [
-            {
-              label: '三大法人合計(張)',
-              data: [instVal],
-              yAxisID: 'y_inst',
-              backgroundColor: instVal >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(249,115,22,0.7)'
-            },
-            {
-              label: '借券成交量(張)',
-              data: [sblVal],
-              type: 'line',
-              yAxisID: 'y_sbl',
-              borderColor: '#38bdf8',
-              backgroundColor: '#38bdf8',
-              borderWidth: 3,
-              tension: 0.1,
-              pointRadius: 4
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y_inst: {
-              position: 'left',
-              grid: { color: '#333' },
-              ticks: { color: '#aaa' }
-            },
-            y_sbl: {
-              position: 'right',
-              grid: { drawOnChartArea: false },
-              ticks: { color: '#aaa' }
-            },
-            x: {
-              grid: { color: '#333' },
-              ticks: { color: '#aaa' }
-            }
-          },
-          plugins: {
-            legend: { position: 'bottom' }
-          }
+      // 若完全沒有 sbl_volume_20d 欄位，且三大法人 20 日合計也為 0，視為尚無 cross-check 資料
+      var hasSblKey = Object.prototype.hasOwnProperty.call(sig, 'sbl_volume_20d');
+      var rawSbl = hasSblKey ? sig.sbl_volume_20d : null;
+      var sblVal = Number(rawSbl || 0);
+      var noInstAndSblData = (!hasSblKey && (!instVal || instVal === 0));
+
+      if (noInstAndSblData) {
+        // 直接在容器上顯示提示文字，避免畫出「全 0」而誤以為有資料
+        var parent = instSblCtx.parentElement;
+        if (parent) {
+          parent.innerHTML = '<div class="text-muted" style="padding:12px; font-size:0.85rem;">尚無三大法人 / 借券 cross-check 資料（請在本機重跑 scraper 產生最新 whale_track.json）。</div>';
         }
-      });
+        charts.instSbl = null;
+      } else {
+        charts.instSbl = new Chart(instSblCtx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: ['20日視窗'],
+            datasets: [
+              {
+                label: '三大法人合計(張)',
+                data: [instVal],
+                yAxisID: 'y_inst',
+                backgroundColor: instVal >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(249,115,22,0.7)'
+              },
+              {
+                label: '借券成交量(張)',
+                data: [sblVal],
+                type: 'line',
+                yAxisID: 'y_sbl',
+                borderColor: '#38bdf8',
+                backgroundColor: '#38bdf8',
+                borderWidth: 3,
+                tension: 0.1,
+                pointRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y_inst: {
+                position: 'left',
+                grid: { color: '#333' },
+                ticks: { color: '#aaa' }
+              },
+              y_sbl: {
+                position: 'right',
+                grid: { drawOnChartArea: false },
+                ticks: { color: '#aaa' }
+              },
+              x: {
+                grid: { color: '#333' },
+                ticks: { color: '#aaa' }
+              }
+            },
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      }
     }
 
     var buyList = (sig.top_buy_15 || []).slice(0, 15).sort(function(a,b){ return (b.net_lot||0) - (a.net_lot||0); });
