@@ -54,6 +54,12 @@ def compute_institutional_and_margin_signals(
         start_date=start_date,
         end_date=end_date,
     )
+    sbl_df = client.request_data(
+        "TaiwanStockSecuritiesLending",
+        data_id=stock_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
     out: SignalsDict = {}
 
@@ -154,6 +160,44 @@ def compute_institutional_and_margin_signals(
     else:
         out["margin_balance_20d_change"] = 0.0
         out["margin_risk_flag"] = 0
+
+    # --- 借券（SBL） ---
+    if sbl_df is not None and not sbl_df.empty and "date" in sbl_df.columns:
+        dfs = sbl_df.copy()
+        dfs["date"] = dfs["date"].astype(str)
+        dfs = dfs.sort_values("date").reset_index(drop=True)
+
+        # 成交量（張），所有交易方式合計
+        vol = _numeric_col(dfs, ["volume"])
+
+        def _last_n_sum_safe(s: pd.Series, n: int) -> float:
+            if s.empty:
+                return 0.0
+            return float(s.tail(n).sum())
+
+        out["sbl_volume_5d"] = _last_n_sum_safe(vol, 5)
+        out["sbl_volume_20d"] = _last_n_sum_safe(vol, 20)
+        out["sbl_volume_60d"] = _last_n_sum_safe(vol, 60)
+
+        # 以 60 日平均為 baseline，最近 20 日是否明顯放大
+        if len(vol) >= 20:
+            avg_60 = float(vol.tail(60).mean()) if len(vol) >= 60 else float(vol.mean())
+            sum_20 = out["sbl_volume_20d"]
+            if avg_60 <= 0:
+                sbl_ratio = 0.0
+            else:
+                sbl_ratio = sum_20 / (avg_60 * 20.0)
+        else:
+            sbl_ratio = 0.0
+
+        out["sbl_short_pressure_ratio_20d"] = float(np.round(sbl_ratio, 3))
+        out["sbl_short_pressure_flag"] = 1 if sbl_ratio >= 1.5 else 0
+    else:
+        out["sbl_volume_5d"] = 0.0
+        out["sbl_volume_20d"] = 0.0
+        out["sbl_volume_60d"] = 0.0
+        out["sbl_short_pressure_ratio_20d"] = 0.0
+        out["sbl_short_pressure_flag"] = 0
 
     return out
 

@@ -141,6 +141,7 @@ def _save_artifacts(
     auc_train: float,
     auc_test: float,
     split_method: str,
+    rule_stats: List[dict] | None = None,
 ) -> None:
     """存模型、特徵重要度 CSV、簡易 HTML 報表到 data/models 與 data/。"""
     os.makedirs(MODELS_PATH, exist_ok=True)
@@ -166,6 +167,34 @@ def _save_artifacts(
         f'<tr><td>{r["feature"]}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
         for r in rows
     )
+    # 聚焦顯示 Inst / Margin / SBL 相關特徵
+    focus_df = imp_df[
+        imp_df["feature"].str.startswith(("inst_", "margin_", "sbl_"))
+    ].copy()
+    focus_rows = focus_df.head(20).to_dict("records")
+    focus_html = "".join(
+        f'<tr><td>{r["feature"]}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
+        for r in focus_rows
+    )
+
+    # 自訂條件 winrate（test set）
+    rule_html = ""
+    if rule_stats:
+        trs = []
+        for r in rule_stats:
+            name = r.get("name", "")
+            n = r.get("n", 0)
+            win = r.get("win_rate")
+            w_txt = "NaN"
+            try:
+                if win is not None and not (np.isnan(win)):
+                    w_txt = f"{win:.3f}"
+            except Exception:
+                pass
+            trs.append(
+                f'<tr><td>{name}</td><td class="text-end">{n}</td><td class="text-end">{w_txt}</td></tr>'
+            )
+        rule_html = "".join(trs)
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head><meta charset="UTF-8"><title>Phase 3 ML 勝率報告 ret_{horizon}d</title>
@@ -179,6 +208,10 @@ th{{background:#333;color:#f1c40f;}} .metric{{margin:12px 0;}}</style></head>
 <div class="metric">Train AUC = {auc_train:.3f} &nbsp;|&nbsp; Test AUC = {auc_test:.3f}</div>
 <h2>Top 30 特徵重要度</h2>
 <table><thead><tr><th>Feature</th><th class="text-end">Importance</th></tr></thead><tbody>{rows_html}</tbody></table>
+<h2>Inst / Margin / SBL 相關特徵（Top 20）</h2>
+<table><thead><tr><th>Feature</th><th class="text-end">Importance</th></tr></thead><tbody>{focus_html or '<tr><td colspan="2">尚無 inst_ / margin_ / sbl_ 相關特徵</td></tr>'}</tbody></table>
+<h2>自訂條件 winrate（Test set）</h2>
+<table><thead><tr><th>條件名稱</th><th class="text-end">樣本數</th><th class="text-end">win_rate</th></tr></thead><tbody>{rule_html or '<tr><td colspan="3">尚未定義條件或樣本數不足</td></tr>'}</tbody></table>
 </body></html>"""
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -266,12 +299,76 @@ def run_ml(
     for idx in order[:20]:
         print(f"{feat_cols[idx]:40s}  {importances[idx]:.4f}")
 
+    # 自訂條件 winrate（專注在 Inst / Margin / SBL cross-check）
+    rule_stats: List[dict] = []
+    try:
+        df_test_num = df_test.copy()
+        for col in [
+            "inst_three_net_20d",
+            "margin_risk_flag",
+            "sbl_short_pressure_flag",
+        ]:
+            if col in df_test_num.columns:
+                df_test_num[col] = pd.to_numeric(
+                    df_test_num[col], errors="coerce"
+                )
+
+        # 條件 1：三大法人 20 日合計偏多，且融資/借券壓力都不明顯
+        cond1_cols = [
+            "inst_three_net_20d",
+            "margin_risk_flag",
+            "sbl_short_pressure_flag",
+        ]
+        if all(c in df_test_num.columns for c in cond1_cols):
+            c1 = (
+                (df_test_num["inst_three_net_20d"] > 0)
+                & (df_test_num["margin_risk_flag"].fillna(0) <= 0)
+                & (df_test_num["sbl_short_pressure_flag"].fillna(0) <= 0)
+            )
+            idx1 = c1.values
+            n1 = int(idx1.sum())
+            win1 = float(y_test[idx1].mean()) if n1 > 0 else float("nan")
+            rule_stats.append(
+                {
+                    "name": "inst_three_net_20d>0 & no_margin_sbl_pressure",
+                    "n": n1,
+                    "win_rate": win1,
+                }
+            )
+
+        # 條件 2：三大法人 20 日偏空，且借券壓力放大
+        if all(c in df_test_num.columns for c in cond1_cols):
+            c2 = (
+                (df_test_num["inst_three_net_20d"] < 0)
+                & (df_test_num["sbl_short_pressure_flag"].fillna(0) >= 1)
+            )
+            idx2 = c2.values
+            n2 = int(idx2.sum())
+            win2 = float(y_test[idx2].mean()) if n2 > 0 else float("nan")
+            rule_stats.append(
+                {
+                    "name": "inst_three_net_20d<0 & sbl_short_pressure_flag==1",
+                    "n": n2,
+                    "win_rate": win2,
+                }
+            )
+    except Exception:
+        # 自訂條件失敗時，不影響主流程
+        rule_stats = []
+
     if save_artifacts:
         print("\nSaving artifacts...")
         _save_artifacts(
-            clf, feat_cols, importances, horizon,
-            acc_train, acc_test, auc_train, auc_test,
+            clf,
+            feat_cols,
+            importances,
+            horizon,
+            acc_train,
+            acc_test,
+            auc_train,
+            auc_test,
             split_method=split,
+            rule_stats=rule_stats,
         )
 
 
