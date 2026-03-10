@@ -2,7 +2,7 @@
 <title>Phase 1: Signal vs 未來報酬</title>
 <style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>
 <h1>Phase 1：Signal vs 未來報酬</h1>
-<p class="meta">報告產生時間：2026-03-10 17:33 | 有效樣本數：383</p>
+<p class="meta">報告產生時間：2026-03-11 00:33 | 有效樣本數：438</p>
 <h2>一、依 Score 區間（final_score / score）</h2>
 <h3>ret_5d（未來報酬）</h3>
 <table border="1" class="dataframe n">
@@ -35,19 +35,19 @@
     </tr>
     <tr>
       <th class="n">40-60</th>
-      <td>248.0000</td>
-      <td>0.0287</td>
-      <td>0.0112</td>
-      <td>0.0983</td>
-      <td>56.4516</td>
+      <td>309.0000</td>
+      <td>0.0309</td>
+      <td>0.0113</td>
+      <td>0.1057</td>
+      <td>56.6343</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
-      <td>135.0000</td>
-      <td>0.0137</td>
-      <td>0.0067</td>
-      <td>0.0894</td>
-      <td>54.8148</td>
+      <td>129.0000</td>
+      <td>0.0149</td>
+      <td>0.0105</td>
+      <td>0.0911</td>
+      <td>57.3643</td>
     </tr>
     <tr>
       <th class="n">80+</th>
@@ -91,19 +91,19 @@
     </tr>
     <tr>
       <th class="n">40-60</th>
-      <td>228.0000</td>
-      <td>0.0606</td>
-      <td>0.0398</td>
-      <td>0.1270</td>
-      <td>68.4211</td>
+      <td>279.0000</td>
+      <td>0.0701</td>
+      <td>0.0437</td>
+      <td>0.1329</td>
+      <td>69.1756</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
-      <td>120.0000</td>
-      <td>0.0360</td>
-      <td>0.0253</td>
-      <td>0.1232</td>
-      <td>65.8333</td>
+      <td>119.0000</td>
+      <td>0.0363</td>
+      <td>0.0235</td>
+      <td>0.1318</td>
+      <td>63.0252</td>
     </tr>
     <tr>
       <th class="n">80+</th>
@@ -147,19 +147,19 @@
     </tr>
     <tr>
       <th class="n">40-60</th>
-      <td>184.0000</td>
-      <td>0.0916</td>
-      <td>0.0562</td>
-      <td>0.1881</td>
-      <td>61.9565</td>
+      <td>230.0000</td>
+      <td>0.1259</td>
+      <td>0.0912</td>
+      <td>0.2065</td>
+      <td>69.5652</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
-      <td>94.0000</td>
-      <td>0.1342</td>
-      <td>0.1226</td>
-      <td>0.1477</td>
-      <td>84.0426</td>
+      <td>88.0000</td>
+      <td>0.1265</td>
+      <td>0.1152</td>
+      <td>0.1538</td>
+      <td>78.4091</td>
     </tr>
     <tr>
       <th class="n">80+</th>
@@ -173,9 +173,6 @@
 </table>
 <br/>
 <p class="meta">解讀：mean/median 為該區間平均/中位報酬；win_rate% 為報酬&gt;0 的比例。可依此調整策略門檻（例如 70 分以上才做多）。</p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_5d.png" alt="ret_by_score_ret_5d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_10d.png" alt="ret_by_score_ret_10d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_20d.png" alt="ret_by_score_ret_20d.png"/></p>
 <h2>二、依 Monitor state（Whale Trend Monitor）</h2>
 <h3>ret_5d</h3>
 <table border="1" class="dataframe n">
@@ -208,11 +205,11 @@
     </tr>
     <tr>
       <th class="n">FADING</th>
-      <td>144</td>
-      <td>0.0365</td>
-      <td>0.0140</td>
-      <td>0.1113</td>
-      <td>59.0278</td>
+      <td>183</td>
+      <td>0.0404</td>
+      <td>0.0206</td>
+      <td>0.1166</td>
+      <td>61.7486</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -224,11 +221,11 @@
     </tr>
     <tr>
       <th class="n">NEUTRAL</th>
-      <td>192</td>
-      <td>0.0187</td>
-      <td>0.0099</td>
-      <td>0.0914</td>
-      <td>56.2500</td>
+      <td>208</td>
+      <td>0.0190</td>
+      <td>0.0084</td>
+      <td>0.0963</td>
+      <td>55.2885</td>
     </tr>
   </tbody>
 </table>
@@ -264,11 +261,11 @@
     </tr>
     <tr>
       <th class="n">FADING</th>
-      <td>134</td>
-      <td>0.0683</td>
-      <td>0.0458</td>
-      <td>0.1335</td>
-      <td>73.1343</td>
+      <td>170</td>
+      <td>0.0773</td>
+      <td>0.0476</td>
+      <td>0.1443</td>
+      <td>72.9412</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -280,11 +277,11 @@
     </tr>
     <tr>
       <th class="n">NEUTRAL</th>
-      <td>167</td>
-      <td>0.0529</td>
-      <td>0.0369</td>
-      <td>0.1321</td>
-      <td>69.4611</td>
+      <td>181</td>
+      <td>0.0583</td>
+      <td>0.0336</td>
+      <td>0.1340</td>
+      <td>67.9558</td>
     </tr>
   </tbody>
 </table>
@@ -320,11 +317,11 @@
     </tr>
     <tr>
       <th class="n">FADING</th>
-      <td>104</td>
-      <td>0.0947</td>
-      <td>0.0820</td>
-      <td>0.1863</td>
-      <td>65.3846</td>
+      <td>136</td>
+      <td>0.1333</td>
+      <td>0.1041</td>
+      <td>0.2175</td>
+      <td>71.3235</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -336,17 +333,112 @@
     </tr>
     <tr>
       <th class="n">NEUTRAL</th>
-      <td>129</td>
-      <td>0.1451</td>
-      <td>0.1233</td>
-      <td>0.1811</td>
-      <td>76.7442</td>
+      <td>137</td>
+      <td>0.1536</td>
+      <td>0.1407</td>
+      <td>0.1823</td>
+      <td>77.3723</td>
     </tr>
   </tbody>
 </table>
 <br/>
 <p class="meta">解讀：比較 ACCUMULATION / MARKUP 與 NEUTRAL / DISTRIBUTION 的報酬差異，判斷哪些狀態值得當作進場/出場條件。</p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_5d.png" alt="ret_by_state_ret_5d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_10d.png" alt="ret_by_state_ret_10d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_20d.png" alt="ret_by_state_ret_20d.png"/></p>
+<h2>三、依 Inst × Margin × SBL Regime（策略池候選）</h2>
+<h3>ret_5d</h3>
+<table border="1" class="dataframe n">
+  <thead>
+    <tr style="text-align: right;">
+      <th class="n"></th>
+      <th class="n">n</th>
+      <th class="n">mean</th>
+      <th class="n">median</th>
+      <th class="n">std</th>
+      <th class="n">win_rate%</th>
+    </tr>
+    <tr>
+      <th class="n">inst_regime_flag</th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th class="n">OTHER</th>
+      <td>438</td>
+      <td>0.0262</td>
+      <td>0.0112</td>
+      <td>0.1018</td>
+      <td>56.8493</td>
+    </tr>
+  </tbody>
+</table>
+<br/>
+<h3>ret_10d</h3>
+<table border="1" class="dataframe n">
+  <thead>
+    <tr style="text-align: right;">
+      <th class="n"></th>
+      <th class="n">n</th>
+      <th class="n">mean</th>
+      <th class="n">median</th>
+      <th class="n">std</th>
+      <th class="n">win_rate%</th>
+    </tr>
+    <tr>
+      <th class="n">inst_regime_flag</th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th class="n">OTHER</th>
+      <td>398</td>
+      <td>0.0600</td>
+      <td>0.0374</td>
+      <td>0.1333</td>
+      <td>67.3367</td>
+    </tr>
+  </tbody>
+</table>
+<br/>
+<h3>ret_20d</h3>
+<table border="1" class="dataframe n">
+  <thead>
+    <tr style="text-align: right;">
+      <th class="n"></th>
+      <th class="n">n</th>
+      <th class="n">mean</th>
+      <th class="n">median</th>
+      <th class="n">std</th>
+      <th class="n">win_rate%</th>
+    </tr>
+    <tr>
+      <th class="n">inst_regime_flag</th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+      <th class="n"></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th class="n">OTHER</th>
+      <td>318</td>
+      <td>0.1261</td>
+      <td>0.0992</td>
+      <td>0.1932</td>
+      <td>72.0126</td>
+    </tr>
+  </tbody>
+</table>
+<br/>
+<p class="meta">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>
 </body></html>

@@ -30,6 +30,16 @@ SCORE_BUCKETS = [(0, 40, "0-40"), (40, 60, "40-60"), (60, 80, "60-80"), (80, 101
 RET_COLS = ["ret_5d", "ret_10d", "ret_20d"]
 
 
+def _safe_int(x, default: int = 0) -> int:
+    """安全地把值轉成 int，遇到 NaN 或例外時回傳預設值。"""
+    try:
+        if pd.isna(x):
+            return default
+        return int(x)
+    except Exception:
+        return default
+
+
 def _score_bucket(score_series):
     """將 score 分桶，回傳 bucket 標籤。"""
     def bucket(x):
@@ -41,6 +51,22 @@ def _score_bucket(score_series):
                 return label
         return "80+"
     return score_series.map(bucket)
+
+
+def _regime_row(row: pd.Series) -> str:
+    """
+    根據三大法人 + 融資/借券壓力標記，決定 Inst × Margin × SBL regime：
+      - BULL_NO_SHORT: inst_bull_no_short_pressure_flag == 1
+      - BEAR_WITH_SHORT: inst_bear_with_short_pressure_flag == 1
+      - 其他: OTHER
+    """
+    b = _safe_int(row.get("inst_bull_no_short_pressure_flag"), 0)
+    s = _safe_int(row.get("inst_bear_with_short_pressure_flag"), 0)
+    if b == 1 and s == 0:
+        return "BULL_NO_SHORT"
+    if s == 1:
+        return "BEAR_WITH_SHORT"
+    return "OTHER"
 
 
 def load_and_prepare(csv_path: str) -> pd.DataFrame:
@@ -58,20 +84,11 @@ def load_and_prepare(csv_path: str) -> pd.DataFrame:
     else:
         df["monitor_state"] = "NEUTRAL"
 
-    # Inst × Margin × SBL regime（若有新欄位則分段，否則全部標為 OTHER）
+    # Inst × Margin × SBL regime（若有新欄位則用 _regime_row 判斷，否則全部標為 OTHER）
     if (
         "inst_bull_no_short_pressure_flag" in df.columns
-        and "inst_bear_with_short_pressure_flag" in df.columns
+        or "inst_bear_with_short_pressure_flag" in df.columns
     ):
-        def _regime_row(row):
-            b = int(row.get("inst_bull_no_short_pressure_flag") or 0)
-            s = int(row.get("inst_bear_with_short_pressure_flag") or 0)
-            if b == 1:
-                return "BULL_NO_SHORT"
-            if s == 1:
-                return "BEAR_WITH_SHORT"
-            return "OTHER"
-
         df["inst_regime_flag"] = df.apply(_regime_row, axis=1)
     else:
         df["inst_regime_flag"] = "OTHER"
@@ -183,9 +200,16 @@ def write_html_report(
         if tb.empty:
             continue
         html.append(f"<h3>{col}</h3>")
-        html.append(tb.to_html(classes=\"n\", float_format=\"%.4f\").replace(\"<th>\", \"<th class=\\\"n\\\">\"))
-        html.append(\"<br/>\")
-    html.append(\"<p class=\\\"meta\\\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>\")
+        html.append(
+            tb.to_html(classes="n", float_format="%.4f").replace(
+                "<th>", '<th class="n">'
+            )
+        )
+        html.append("<br/>")
+    html.append(
+        "<p class=\"meta\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；"
+        "BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>"
+    )
 
     html.append("</body></html>")
     with open(output_path, "w", encoding="utf-8") as f:
