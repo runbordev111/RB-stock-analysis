@@ -38,16 +38,25 @@ def compute_institutional_and_margin_signals(
     except Exception:
         end_date = last_trade_date
 
-    start_date = (datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=lookback_days)).strftime(
-        "%Y-%m-%d"
-    )
+    start_date = (
+        datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=lookback_days)
+    ).strftime("%Y-%m-%d")
 
+    # --- 三大法人：優先使用 v4 個股買賣超 dataset，若抓不到再退回舊版 ---
     inst_df = client.request_data(
-        "TaiwanStockInstitutionalInvestors",
+        "TaiwanStockInstitutionalInvestorsBuySell",
         data_id=stock_id,
         start_date=start_date,
         end_date=end_date,
     )
+    if inst_df is None or inst_df.empty or "date" not in inst_df.columns:
+        # 向後相容：嘗試舊的 TaiwanStockInstitutionalInvestors
+        inst_df = client.request_data(
+            "TaiwanStockInstitutionalInvestors",
+            data_id=stock_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
     margin_df = client.request_data(
         "TaiwanStockMarginPurchaseShortSale",
         data_id=stock_id,
@@ -69,17 +78,43 @@ def compute_institutional_and_margin_signals(
         df["date"] = df["date"].astype(str)
         df = df.sort_values("date").reset_index(drop=True)
 
+        # FinMind 不同版本/文件的欄位名稱可能不同，這裡盡量涵蓋常見別名：
         foreign = _numeric_col(
             df,
-            ["ForeignInvestorsDiff", "foreign_investor_diff", "ForeignInvestorDiff"],
+            [
+                # 舊版差額欄位
+                "ForeignInvestorsDiff",
+                "foreign_investor_diff",
+                "ForeignInvestorDiff",
+                # v4 常見命名：淨買賣超 / buy_sell
+                "ForeignInvestorsNetBuySell",
+                "foreign_investors_net_buy_sell",
+                "foreign_investors_buy_sell",
+                "foreign_investor_buy_sell",
+            ],
         )
         trust = _numeric_col(
             df,
-            ["InvestmentTrustDiff", "investment_trust_diff", "InvestTrustDiff"],
+            [
+                "InvestmentTrustDiff",
+                "investment_trust_diff",
+                "InvestTrustDiff",
+                "InvestmentTrustNetBuySell",
+                "investment_trust_net_buy_sell",
+                "investment_trust_buy_sell",
+            ],
         )
         dealer = _numeric_col(
             df,
-            ["DealerDiff", "dealer_diff", "SecuritiesDealerDiff"],
+            [
+                "DealerDiff",
+                "dealer_diff",
+                "SecuritiesDealerDiff",
+                "DealersDiff",
+                "DealersNetBuySell",
+                "dealers_net_buy_sell",
+                "dealers_buy_sell",
+            ],
         )
 
         three = foreign + trust + dealer
