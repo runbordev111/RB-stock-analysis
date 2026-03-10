@@ -27,6 +27,7 @@ from core.signals.distribution import compute_distribution_risk
 from core.signals.monitor import compute_monitor_state
 from core.signals.whale_extras import compute_turning_points, compute_whale_radar
 from core.broker_archetype import apply_broker_archetype
+from core.signals.institutional import compute_institutional_and_margin_signals
 
 
 # -----------------------------------------------------------------------------
@@ -201,6 +202,18 @@ def analyze_whale_trajectory(
         "top_sell_15": top15_pack["top_sell_15"],
         **breadth_series_pack,
     }
+
+    # 三大法人 + 融資 cross-check（使用 FinMind 原始資料）
+    try:
+        inst_margin_pack = compute_institutional_and_margin_signals(
+            adapter.client,  # type: ignore[attr-defined]
+            stock_id=stock_id,
+            last_trade_date=last_1d,
+        )
+        signals.update(inst_margin_pack)
+    except Exception:
+        # 資料缺失時不影響主流程，維持既有 signals
+        pass
 
     # 將 broker archetype 的彙總指標灌入 signals
     signals.update(archetype_pack.get("signals", {}))

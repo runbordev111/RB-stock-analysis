@@ -168,6 +168,23 @@ def extract_signal_features(
     row["geo_baseline_weight"] = signals.get("geo_baseline_weight")
     row["dist_risk_flag"] = signals.get("dist_risk_flag")
 
+    # Institutional / Margin
+    for k in [
+        "inst_foreign_net_5d",
+        "inst_trust_net_5d",
+        "inst_three_net_5d",
+        "inst_foreign_net_20d",
+        "inst_trust_net_20d",
+        "inst_three_net_20d",
+        "inst_foreign_net_60d",
+        "inst_trust_net_60d",
+        "inst_three_net_60d",
+        "inst_three_align_5d",
+        "margin_balance_20d_change",
+        "margin_risk_flag",
+    ]:
+        row[k] = signals.get(k)
+
     # Validation / Risk
     val = signals.get("validation") or {}
     risk = signals.get("risk") or {}
