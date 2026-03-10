@@ -1,19 +1,10 @@
-# 重裝
-# deactivate
-# Remove-Item -Recurse -Force .\venv
-# Test-Path .\venv
+# cd C:\ngrok\RB-stock-analysis
+# rmdir /s /q venv
 # python -m venv venv
-# .\venv\Scripts\Activate.ps1
-# python -c "import sys; print(sys.executable); print(sys.version)"
-# python -m ensurepip --upgrade
-# python -m pip -V
-# python -m pip install -U pip setuptools wheel
-# python -m pip install -r .\requirements.txt --no-cache-dir --force-reinstall
-# python -c "import requests, urllib3, charset_normalizer; print('ok', requests.__version__, urllib3.__version__)"
+# .\venv\Scripts\activate
+# python -m pip install --upgrade pip
+# python -m pip install -r requirements.txt
 
-
-# 安裝前請先：cd C:\ngrok\RB_DataMining，再 python -m pip install -r requirements.txt
-# 或使用 venv：py -3 -m venv venv → .\venv\Scripts\Activate.ps1 → pip install -r requirements.txt
 
 # 基礎 HTTP / JSON / 環境變數
 requests

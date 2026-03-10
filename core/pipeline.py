@@ -211,9 +211,9 @@ def analyze_whale_trajectory(
             last_trade_date=last_1d,
         )
         signals.update(inst_margin_pack)
-    except Exception:
-        # 資料缺失時不影響主流程，維持既有 signals
-        pass
+    except Exception as e:
+        # DEBUG：暫時印出錯誤原因，方便查為何 inst_* / sbl_* 沒有寫進 signals
+        print(f"⚠ inst/margin signals failed for {stock_id} on {last_1d}: {e!r}")
 
     # 將 broker archetype 的彙總指標灌入 signals
     signals.update(archetype_pack.get("signals", {}))
