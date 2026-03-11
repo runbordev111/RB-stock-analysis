@@ -2,7 +2,7 @@
 <title>Phase 1: Signal vs 未來報酬</title>
 <style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>
 <h1>Phase 1：Signal vs 未來報酬</h1>
-<p class="meta">報告產生時間：2026-03-11 17:06 | 有效樣本數：438</p>
+<p class="meta">報告產生時間：2026-03-11 21:43 | 有效樣本數：438</p>
 <h2>一、依 Score 區間（final_score / score）</h2>
 <h3>ret_5d（未來報酬）</h3>
 <table border="1" class="dataframe n">
@@ -173,9 +173,6 @@
 </table>
 <br/>
 <p class="meta">解讀：mean/median 為該區間平均/中位報酬；win_rate% 為報酬&gt;0 的比例。可依此調整策略門檻（例如 70 分以上才做多）。</p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_5d.png" alt="ret_by_score_ret_5d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_10d.png" alt="ret_by_score_ret_10d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_20d.png" alt="ret_by_score_ret_20d.png"/></p>
 <h2>二、依 Monitor state（Whale Trend Monitor）</h2>
 <h3>ret_5d</h3>
 <table border="1" class="dataframe n">
@@ -346,9 +343,6 @@
 </table>
 <br/>
 <p class="meta">解讀：比較 ACCUMULATION / MARKUP 與 NEUTRAL / DISTRIBUTION 的報酬差異，判斷哪些狀態值得當作進場/出場條件。</p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_5d.png" alt="ret_by_state_ret_5d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_10d.png" alt="ret_by_state_ret_10d.png"/></p>
-<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_20d.png" alt="ret_by_state_ret_20d.png"/></p>
 <h2>三、依 Inst × Margin × SBL Regime（策略池候選）</h2>
 <h3>ret_5d</h3>
 <table border="1" class="dataframe n">
@@ -372,12 +366,20 @@
   </thead>
   <tbody>
     <tr>
+      <th class="n">BULL_NO_SHORT</th>
+      <td>41</td>
+      <td>0.0326</td>
+      <td>-0.0042</td>
+      <td>0.1627</td>
+      <td>46.3415</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>438</td>
-      <td>0.0262</td>
-      <td>0.0112</td>
-      <td>0.1017</td>
-      <td>57.0776</td>
+      <td>397</td>
+      <td>0.0256</td>
+      <td>0.0134</td>
+      <td>0.0935</td>
+      <td>58.1864</td>
     </tr>
   </tbody>
 </table>
@@ -404,12 +406,20 @@
   </thead>
   <tbody>
     <tr>
+      <th class="n">BULL_NO_SHORT</th>
+      <td>36</td>
+      <td>0.0822</td>
+      <td>0.0254</td>
+      <td>0.2025</td>
+      <td>61.1111</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>398</td>
-      <td>0.0606</td>
-      <td>0.0380</td>
-      <td>0.1334</td>
-      <td>67.5879</td>
+      <td>362</td>
+      <td>0.0585</td>
+      <td>0.0395</td>
+      <td>0.1246</td>
+      <td>68.2320</td>
     </tr>
   </tbody>
 </table>
@@ -436,12 +446,20 @@
   </thead>
   <tbody>
     <tr>
+      <th class="n">BULL_NO_SHORT</th>
+      <td>26</td>
+      <td>0.1387</td>
+      <td>0.1200</td>
+      <td>0.0928</td>
+      <td>96.1538</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>318</td>
-      <td>0.1269</td>
-      <td>0.1014</td>
-      <td>0.1931</td>
-      <td>72.3270</td>
+      <td>292</td>
+      <td>0.1258</td>
+      <td>0.0969</td>
+      <td>0.1997</td>
+      <td>70.2055</td>
     </tr>
   </tbody>
 </table>
