@@ -42,21 +42,13 @@ def compute_institutional_and_margin_signals(
         datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=lookback_days)
     ).strftime("%Y-%m-%d")
 
-    # --- 三大法人：優先使用 v4 個股買賣超 dataset，若抓不到再退回舊版 ---
+    # --- 三大法人：使用個股三大法人買賣表 InstitutionalInvestorsBuySell ---
     inst_df = client.request_data(
-        "TaiwanStockInstitutionalInvestorsBuySell",
+        "InstitutionalInvestorsBuySell",
         data_id=stock_id,
         start_date=start_date,
         end_date=end_date,
     )
-    if inst_df is None or inst_df.empty or "date" not in inst_df.columns:
-        # 向後相容：嘗試舊的 TaiwanStockInstitutionalInvestors
-        inst_df = client.request_data(
-            "TaiwanStockInstitutionalInvestors",
-            data_id=stock_id,
-            start_date=start_date,
-            end_date=end_date,
-        )
     margin_df = client.request_data(
         "TaiwanStockMarginPurchaseShortSale",
         data_id=stock_id,
