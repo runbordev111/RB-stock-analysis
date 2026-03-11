@@ -376,7 +376,8 @@ def dashboard():
     stock_name = get_stock_name(stock_id)
 
     json_path = os.path.join(DATA_PATH, f"{stock_id}_whale_track.json")
-    broker_map = load_broker_master_enriched(DATA_PATH)
+    # 對 dashboard 也使用 rawdata 版本的券商主檔，確保 GEO/距離資訊齊全
+    broker_map = load_broker_master_enriched(RAW_PATH)
 
     stock_info = {
         "id": stock_id,

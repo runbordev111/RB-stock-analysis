@@ -277,8 +277,8 @@ def run_backtest(
 
     client = FinMindClient(token=token, verify_ssl=verify_ssl)
     adapter = TaiwanStockAdapter(client)
-    # 與原本行為保持一致：從 data/ 讀 broker_master（而不是 rawdata/）
-    broker_map = load_broker_master_enriched(DATA_PATH)
+    # 與實際 GEO 計算一致：優先使用 rawdata 內含經緯度的券商主檔
+    broker_map = load_broker_master_enriched(RAW_PATH)
 
     rows: List[Dict[str, Any]] = []
 
