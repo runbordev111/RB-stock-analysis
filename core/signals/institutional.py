@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import os
 from typing import Any, Dict
 
 import numpy as np
@@ -69,6 +70,21 @@ def compute_institutional_and_margin_signals(
         df = inst_df.copy()
         df["date"] = df["date"].astype(str)
         df = df.sort_values("date").reset_index(drop=True)
+
+        # Debug dump：把前幾列 schema 寫到 data/debug/inst_{stock_id}.json 方便檢查欄位
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            debug_dir = os.path.join(project_root, "data", "debug")
+            os.makedirs(debug_dir, exist_ok=True)
+            debug_path = os.path.join(debug_dir, f"inst_{stock_id}.json")
+            head_dict = df.head(10).to_dict(orient="list")
+            import json
+
+            with open(debug_path, "w", encoding="utf-8") as f:
+                json.dump(head_dict, f, ensure_ascii=False, indent=2)
+        except Exception:
+            # debug 失敗不影響主流程
+            pass
 
         # v4 TaiwanStockInstitutionalInvestorsBuySell 結構：
         # date, stock_id, name, buy, sell
