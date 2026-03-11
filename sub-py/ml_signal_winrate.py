@@ -197,21 +197,21 @@ def _save_artifacts(
         rule_html = "".join(trs)
     html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
-<head><meta charset="UTF-8"><title>Phase 3 ML 勝率報告 ret_{horizon}d</title>
+<head><meta charset="UTF-8"><title>勝率評估表（ret_{horizon}d）</title>
 <style>body{{font-family:Segoe UI,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:20px;}}
-table{{border-collapse:collapse;width:100%;max-width:600px;}} th,td{{border:1px solid #444;padding:8px;text-align:left;}}
+table{{border-collapse:collapse;width:100%;max-width:760px;}} th,td{{border:1px solid #444;padding:8px;text-align:left;}}
 th{{background:#333;color:#f1c40f;}} .metric{{margin:12px 0;}}</style></head>
 <body>
-<h1>Phase 3：ML 勝率估計（ret_{horizon}d）</h1>
-<div class="metric">Split = {split_method}</div>
-<div class="metric">Train accuracy = {acc_train:.3f} &nbsp;|&nbsp; Test accuracy = {acc_test:.3f}</div>
-<div class="metric">Train AUC = {auc_train:.3f} &nbsp;|&nbsp; Test AUC = {auc_test:.3f}</div>
-<h2>Top 30 特徵重要度</h2>
-<table><thead><tr><th>Feature</th><th class="text-end">Importance</th></tr></thead><tbody>{rows_html}</tbody></table>
-<h2>Inst / Margin / SBL 相關特徵（Top 20）</h2>
-<table><thead><tr><th>Feature</th><th class="text-end">Importance</th></tr></thead><tbody>{focus_html or '<tr><td colspan="2">尚無 inst_ / margin_ / sbl_ 相關特徵</td></tr>'}</tbody></table>
-<h2>自訂條件 winrate（Test set）</h2>
-<table><thead><tr><th>條件名稱</th><th class="text-end">樣本數</th><th class="text-end">win_rate</th></tr></thead><tbody>{rule_html or '<tr><td colspan="3">尚未定義條件或樣本數不足</td></tr>'}</tbody></table>
+<h1>勝率評估表（未來 {horizon} 日報酬 &gt; 0）</h1>
+<div class="metric">資料切分方式：{split_method}</div>
+<div class="metric">訓練集正確率 = {acc_train:.3f} &nbsp;|&nbsp; 測試集正確率 = {acc_test:.3f}</div>
+<div class="metric">訓練集 AUC = {auc_train:.3f} &nbsp;|&nbsp; 測試集 AUC = {auc_test:.3f}</div>
+<h2>前 30 名影響勝率的特徵</h2>
+<table><thead><tr><th>特徵名稱</th><th class="text-end">重要度</th></tr></thead><tbody>{rows_html}</tbody></table>
+<h2>三大法人 / 融資 / 借券 相關特徵（前 20 名）</h2>
+<table><thead><tr><th>特徵名稱</th><th class="text-end">重要度</th></tr></thead><tbody>{focus_html or '<tr><td colspan="2">尚無 inst_ / margin_ / sbl_ 相關特徵</td></tr>'}</tbody></table>
+<h2>自訂情境下的勝率（測試集）</h2>
+<table><thead><tr><th>條件名稱</th><th class="text-end">樣本數</th><th class="text-end">勝率（win_rate）</th></tr></thead><tbody>{rule_html or '<tr><td colspan="3">尚未定義條件或樣本數不足</td></tr>'}</tbody></table>
 </body></html>"""
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
