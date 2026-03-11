@@ -155,6 +155,12 @@
     const m = { ACCUMULATION:'吸籌/佈局期', MARKUP:'推升/趨勢延續', FADING:'退潮警戒', DISTRIBUTION:'派發警戒' };
     return m[ms] || '觀察中';
   }
+  function geoTagZh(tag){
+    if (!tag) return '';
+    if (tag.indexOf('geo_na')>=0) return '暫無地緣資料';
+    if (tag.indexOf('baseline_all')>=0) return '以全市場作為基準';
+    return tag;
+  }
   function reasonZh(code){
     const map = {
       pressure_sell_dominate: '壓力拋售主導',
@@ -223,9 +229,9 @@
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">5日集中度 (%)</div><div class="metric-value">' + c5 + '%</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">主力走向</div><div class="metric-value" style="font-size:1.15rem;">' + trend + '</div></div></div></div>';
 
-    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">地緣評分</div><div class="metric-value">' + geo + '</div><div class="metric-label mt-1">' + (sig.geo_tag || '') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">前五分點距離加權均值(KM)</div><div class="metric-value">' + (sig.geo_top5_wavg_km != null ? sig.geo_top5_wavg_km : '-') + '</div><div class="metric-label mt-1">Z-Score: ' + (sig.geo_zscore != null ? sig.geo_zscore : '-') + ' | Affinity: ' + (sig.geo_affinity_score != null ? sig.geo_affinity_score : '-') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">基準 / 權重 / 調整</div><div class="metric-value" style="font-size:1rem;">' + (sig.geo_baseline_tag || '-') + '</div><div class="metric-label mt-1">w=' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' | adj=' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
+    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">地緣評分</div><div class="metric-value">' + geo + '</div><div class="metric-label mt-1">' + geoTagZh(sig.geo_tag || '') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">前五分點距離加權均值(KM)</div><div class="metric-value">' + (sig.geo_top5_wavg_km != null ? sig.geo_top5_wavg_km : '-') + '</div><div class="metric-label mt-1">Z 分數：' + (sig.geo_zscore != null ? sig.geo_zscore : '-') + ' ｜ 親近度：' + (sig.geo_affinity_score != null ? sig.geo_affinity_score : '-') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">基準 / 權重 / 調整</div><div class="metric-value" style="font-size:1rem;">' + (sig.geo_baseline_tag === "baseline_all" ? "全市場基準" : (sig.geo_baseline_tag || '-')) + '</div><div class="metric-label mt-1">權重 w=' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' ｜ 調整值 adj=' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
 
     var g5 = sig.geo_top5_detail || [];
     if (g5.length) {
@@ -240,17 +246,38 @@
       var czZh = czStatus === 'above_zone' ? '強勢突破' : (czStatus === 'inside_zone' ? '成本區洗盤' : '破位警戒');
       html += '<h6 class="text-info-dash mt-3 mb-2">🏷 主力成本帶</h6><div class="cost-zone-container">';
       html += '<span class="tag-pill">' + czZh + '</span>';
-      html += '<span class="tag-pill">Touch(20D): ' + (ez.cz_touch_20d != null ? ez.cz_touch_20d : '-') + '</span>';
-      html += '<span class="tag-pill">Break↑: ' + (ez.cz_break_up_20d != null ? ez.cz_break_up_20d : '-') + '</span>';
-      html += '<span class="tag-pill">Break↓: ' + (ez.cz_break_dn_20d != null ? ez.cz_break_dn_20d : '-') + '</span>';
-      html += '<span class="tag-pill">Defense: ' + (ez.cz_defense_rate_20d != null ? (ez.cz_defense_rate_20d*100).toFixed(1) + '%' : '-') + '</span>';
-      html += '<div class="mt-2" style="font-size:0.85rem; color:#cfcfcf;">cost_low=' + (ez.cost_low != null ? ez.cost_low : '-') + ' | cost_high=' + (ez.cost_high != null ? ez.cost_high : '-') + ' | close_last=' + (ez.close_last != null ? ez.close_last : '-') + '</div></div>';
+      html += '<span class="tag-pill">20日觸及次數: ' + (ez.cz_touch_20d != null ? ez.cz_touch_20d : '-') + '</span>';
+      html += '<span class="tag-pill">突破次數: ' + (ez.cz_break_up_20d != null ? ez.cz_break_up_20d : '-') + '</span>';
+      html += '<span class="tag-pill">跌破次數: ' + (ez.cz_break_dn_20d != null ? ez.cz_break_dn_20d : '-') + '</span>';
+      html += '<span class="tag-pill">防守成功率: ' + (ez.cz_defense_rate_20d != null ? (ez.cz_defense_rate_20d*100).toFixed(1) + '%' : '-') + '</span>';
+      var cLow = ez.cost_low, cHigh = ez.cost_high, cClose = ez.close_last;
+      if (cLow != null && cHigh != null && cClose != null && cHigh > cLow){
+        var minP = Math.min(cLow, cClose);
+        var maxP = Math.max(cHigh, cClose);
+        var span = maxP - minP;
+        var lowPct = ((cLow - minP) / span) * 100;
+        var highPct = ((cHigh - minP) / span) * 100;
+        var closePct = ((cClose - minP) / span) * 100;
+        html += '<div class="cost-bar-track">';
+        html += '<div class="cost-bar-range" style="left:' + lowPct.toFixed(1) + '%;width:' + (highPct-lowPct).toFixed(1) + '%;"></div>';
+        html += '<div class="cost-bar-close" style="left:' + closePct.toFixed(1) + '%;"></div>';
+        html += '</div>';
+        html += '<div class="cost-bar-label">成本區間：' + cLow + ' ～ ' + cHigh + ' ｜ 收盤：' + cClose + '</div>';
+      } else {
+        html += '<div class="mt-2" style="font-size:0.85rem; color:#cfcfcf;">成本區間 / 收盤價資料不足</div>';
+      }
+      html += '</div>';
     }
 
     html += '<h6 class="text-info-dash mt-4 mb-2">📡 TV 主力行為偵測</h6><div class="row mb-4 g-3">';
-    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">TV Score</div><div class="metric-value">' + (sig.tv_score != null ? sig.tv_score : 0) + '</div><div class="metric-label">' + (sig.tv_grade || '') + '</div></div></div>';
-    html += '<div class="col-md-9"><div class="metric-card" style="text-align:left;"><div class="metric-label mb-2">五大訊號</div><div class="d-flex flex-wrap gap-2">';
-    ['sig_vwap','sig_accumulation','sig_rotation','sig_profile_zone','sig_structure_break'].forEach(function(k){ var v = sig[k] != null ? sig[k] : 0; html += '<span class="tag-pill">' + k + ': <b style="color:' + (v?'#2ecc71':'#666') + '">' + v + '</b></span>'; });
+    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">TV 綜合得分</div><div class="metric-value">' + (sig.tv_score != null ? sig.tv_score : 0) + '</div><div class="metric-label">' + (sig.tv_grade || '') + '</div></div></div>';
+    html += '<div class="col-md-9"><div class="metric-card" style="text-align:left;"><div class="metric-label mb-2">五大價格訊號</div><div class="d-flex flex-wrap gap-2">';
+    var tvNames = {sig_vwap:'均價偏離',sig_accumulation:'吸籌訊號',sig_rotation:'換手/輪動',sig_profile_zone:'價量重心',sig_structure_break:'結構突破'};
+    ['sig_vwap','sig_accumulation','sig_rotation','sig_profile_zone','sig_structure_break'].forEach(function(k){
+      var v = sig[k] != null ? sig[k] : 0;
+      var on = v ? '啟動' : '未觸發';
+      html += '<span class="tag-pill">' + tvNames[k] + '：<b style="color:' + (v?'#2ecc71':'#666') + '">' + on + '</b></span>';
+    });
     html += '</div></div></div></div>';
 
     html += '<div class="row mb-4 g-3"><div class="col-md-3"><div class="metric-card"><div class="metric-label">主力得分</div><div class="metric-value">' + scoreU + '</div></div></div>';
@@ -279,7 +306,7 @@
     html += '<div class="metric-label mt-1">融資壓力: ' + (marginFlag>0 ? '偏高' : '正常') + ' | 借券壓力: ' + (sblFlag>0 ? '放大' : '正常') + '</div>';
     html += '</div></div>';
     html += '<div class="col-md-6"><div class="metric-card" style="text-align:left;">';
-    html += '<div class="metric-label">Inst × Margin × SBL Regime</div>';
+    html += '<div class="metric-label">三大法人 × 融資 × 借券 狀態</div>';
     html += '<div class="metric-value" style="font-size:1.25rem;color:' + regimeColor + ';">' + regimeTag + '</div>';
     html += '<div class="metric-label mt-1">條件1: inst_three_net_20d>0 且 融資/借券壓力正常 → 偏多 regime</div>';
     html += '<div class="metric-label">條件2: inst_three_net_20d<0 且 借券壓力放大 → 偏空+空軍壓力 regime</div>';
@@ -308,12 +335,12 @@
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">突破成立</div><div class="metric-value" style="color:' + (val.breakout_flag===1?'#2ecc71':'#999') + '">' + (val.breakout_flag===1?'PASS':'FAIL') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">背離警示</div><div class="metric-value" style="color:' + (val.divergence_flag===1?'#f1c40f':'#2ecc71') + '">' + (val.divergence_flag===1?'WARN':'OK') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">確認分數</div><div class="metric-value">' + (val.confirmation_score != null ? val.confirmation_score : '-') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">ATR%(20D)</div><div class="metric-value">' + (risk.atr_pct_20d != null ? (risk.atr_pct_20d*100).toFixed(2) + '%' : '-') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">20日波動率 (ATR%)</div><div class="metric-value">' + (risk.atr_pct_20d != null ? (risk.atr_pct_20d*100).toFixed(2) + '%' : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">成交動能(20D億)</div><div class="metric-value">' + (risk.avg_turnover_20d != null ? (risk.avg_turnover_20d/1e8).toFixed(2) : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">失效條件</div><div class="metric-value" style="color:' + (risk.invalid_flag===1?'#e74c3c':'#2ecc71') + '">' + (risk.invalid_flag===1?'TRIGGER':'SAFE') + '</div></div></div></div>';
 
     var dr = (sig.dist_risk_flag || 0) ? 1 : 0;
-    html += '<div class="row mb-4"><div class="col-md-6"><div class="metric-card" style="text-align:left;"><div class="metric-label">🧨 Distribution Risk</div><div class="metric-value" style="font-size:1.2rem; color:' + (dr?'#e74c3c':'#2ecc71') + '">' + (dr?'ON':'OFF') + '</div><div class="metric-label">' + (sig.dist_risk_tag || '') + '</div></div></div></div>';
+    html += '<div class="row mb-4"><div class="col-md-6"><div class="metric-card" style="text-align:left;"><div class="metric-label">🧨 分佈風險 (Distribution Risk)</div><div class="metric-value" style="font-size:1.2rem; color:' + (dr?'#e74c3c':'#2ecc71') + '">' + (dr?'風險偏高':'風險正常') + '</div><div class="metric-label">' + (sig.dist_risk_tag || '') + '</div></div></div></div>';
 
     html += '<div class="row mb-4 g-3"><div class="col-md-3"><div class="metric-card"><div class="metric-label">20日買超家數</div><div class="metric-value">' + (sig.buy_count_20d != null ? sig.buy_count_20d : '-') + '</div></div></div>';
     html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">20日賣超家數</div><div class="metric-value">' + (sig.sell_count_20d != null ? sig.sell_count_20d : '-') + '</div></div></div>';
@@ -322,10 +349,10 @@
 
     html += '<h6 class="text-info-dash mt-3 mb-2">📉 廣度趨勢</h6><div class="chart-container-mini"><canvas id="breadthCanvas"></canvas></div>';
 
-    html += '<h6 class="text-info-dash mt-3 mb-2">👥 主力群聚 Coherence</h6><div class="row g-3 mb-4"><div class="col-md-8"><div class="chart-container-mini" style="height:220px;"><canvas id="coherenceCanvas"></canvas></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Coherence Today</div><div class="metric-value">' + (ez.coherence_today != null ? ez.coherence_today : '-') + '</div></div>';
-    html += '<div class="metric-card mt-2"><div class="metric-label">Slope(5D)</div><div class="metric-value">' + (ez.coherence_slope_5d != null ? ez.coherence_slope_5d : '-') + '</div></div>';
-    html += '<div class="metric-card mt-2"><div class="metric-label">Persistence(20D)</div><div class="metric-value">' + (ez.coherence_persistence_20d != null ? (ez.coherence_persistence_20d*100).toFixed(1) + '%' : '-') + '</div></div></div></div>';
+    html += '<h6 class="text-info-dash mt-3 mb-2">👥 主力群聚連貫性 (Coherence)</h6><div class="row g-3 mb-4"><div class="col-md-8"><div class="chart-container-mini" style="height:220px;"><canvas id="coherenceCanvas"></canvas></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">本日連貫性</div><div class="metric-value">' + (ez.coherence_today != null ? ez.coherence_today : '-') + '</div></div>';
+    html += '<div class="metric-card mt-2"><div class="metric-label">斜率 (5日)</div><div class="metric-value">' + (ez.coherence_slope_5d != null ? ez.coherence_slope_5d : '-') + '</div></div>';
+    html += '<div class="metric-card mt-2"><div class="metric-label">持久性 (20日)</div><div class="metric-value">' + (ez.coherence_persistence_20d != null ? (ez.coherence_persistence_20d*100).toFixed(1) + '%' : '-') + '</div></div></div></div>';
 
     var f5 = parseFloat(sig.foreign_net_5d) || 0, l5 = parseFloat(sig.local_net_5d) || 0;
     html += '<div class="row mb-4 g-3"><div class="col-md-6"><div class="kpi-hero ' + (f5>=0?'pos':'neg') + '"><div class="kpi-title"><span class="org-foreign">外資</span>主力 5日(張)</div><div class="kpi-num">' + (f5/1000).toFixed(1) + '</div><div class="kpi-sub">' + (f5>=0?'▲ 偏多':'▼ 偏空') + '</div></div></div>';
