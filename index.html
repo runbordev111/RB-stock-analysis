@@ -47,7 +47,7 @@
 </head>
 <body>
 <div class="container py-5">
-  <h1 class="mb-2 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RB 籌碼戰情室</h1>
+  <h1 class="mb-2 text-center" style="color:#f1c40f;" id="dashboardTitle">📊 RUNBOR 籌碼戰情室</h1>
   <div class="text-center mb-2">
     <span class="badge bg-secondary" id="versionBadge">版本：載入中…</span>
   </div>
@@ -56,25 +56,25 @@
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="tab-dashboard" data-bs-toggle="tab"
               data-bs-target="#panel-dashboard" type="button" role="tab">
-        Dashboard
+        分數儀表板
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-phase1" data-bs-toggle="tab"
               data-bs-target="#panel-phase1" type="button" role="tab">
-        Phase 1 分析
+        報酬分析
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-phase3" data-bs-toggle="tab"
               data-bs-target="#panel-phase3" type="button" role="tab">
-        Phase 3 ML 勝率
+        勝率評估表
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-archetype" data-bs-toggle="tab"
               data-bs-target="#panel-archetype" type="button" role="tab">
-        Broker Archetype
+        券商原型
       </button>
     </li>
   </ul>
@@ -155,6 +155,12 @@
     const m = { ACCUMULATION:'吸籌/佈局期', MARKUP:'推升/趨勢延續', FADING:'退潮警戒', DISTRIBUTION:'派發警戒' };
     return m[ms] || '觀察中';
   }
+  function reasonZh(code){
+    const map = {
+      pressure_sell_dominate: '壓力拋售主導',
+    };
+    return map[code] || code;
+  }
   function msColor(ms){
     const c = { DISTRIBUTION:'#e74c3c', FADING:'#f39c12', ACCUMULATION:'#2ecc71', MARKUP:'#f1c40f' };
     return c[ms] || '#999';
@@ -208,18 +214,18 @@
     html += '<div class="' + statusCls + '">' + (stock.status || '') + '</div><div class="led-group mt-2">' + ledHtml + '</div></div></div>';
 
     html += '<div class="metric-card mb-4" style="text-align:left; border:1px solid #333; background:#161616;">';
-    html += '<div class="metric-label">📌 Whale Trend Monitor</div>';
+    html += '<div class="metric-label">📌 大戶監測趨勢</div>';
     html += '<div style="font-size:1.55rem; font-weight:900; color:' + msColor(ms) + ';">' + msZh(ms) + '</div>';
-    if (mr.length) html += '<div class="mt-2">' + mr.slice(0,6).map(function(r){ return '<span class="tag-pill">' + r + '</span>'; }).join('') + '</div>';
+    if (mr.length) html += '<div class="mt-2">' + mr.slice(0,6).map(function(r){ return '<span class="tag-pill">' + reasonZh(r) + '</span>'; }).join('') + '</div>';
     html += '</div>';
 
     html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">20日集中度 (%)</div><div class="metric-value">' + c20 + '%</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">5日集中度 (%)</div><div class="metric-value">' + c5 + '%</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">主力走向</div><div class="metric-value" style="font-size:1.15rem;">' + trend + '</div></div></div></div>';
 
-    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">Geo Grade</div><div class="metric-value">' + geo + '</div><div class="metric-label mt-1">' + (sig.geo_tag || '') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Top5 W-Avg KM</div><div class="metric-value">' + (sig.geo_top5_wavg_km != null ? sig.geo_top5_wavg_km : '-') + '</div><div class="metric-label mt-1">Z-Score: ' + (sig.geo_zscore != null ? sig.geo_zscore : '-') + ' | Affinity: ' + (sig.geo_affinity_score != null ? sig.geo_affinity_score : '-') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Baseline / Weight / Adjust</div><div class="metric-value" style="font-size:1rem;">' + (sig.geo_baseline_tag || '-') + '</div><div class="metric-label mt-1">w=' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' | adj=' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
+    html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">地緣評分</div><div class="metric-value">' + geo + '</div><div class="metric-label mt-1">' + (sig.geo_tag || '') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">前五分點距離加權均值(KM)</div><div class="metric-value">' + (sig.geo_top5_wavg_km != null ? sig.geo_top5_wavg_km : '-') + '</div><div class="metric-label mt-1">Z-Score: ' + (sig.geo_zscore != null ? sig.geo_zscore : '-') + ' | Affinity: ' + (sig.geo_affinity_score != null ? sig.geo_affinity_score : '-') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">基準 / 權重 / 調整</div><div class="metric-value" style="font-size:1rem;">' + (sig.geo_baseline_tag || '-') + '</div><div class="metric-label mt-1">w=' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' | adj=' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
 
     var g5 = sig.geo_top5_detail || [];
     if (g5.length) {
