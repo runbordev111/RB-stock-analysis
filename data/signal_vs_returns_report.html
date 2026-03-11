@@ -1,10 +1,10 @@
 <!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">
-<title>Phase 1: Signal vs 未來報酬</title>
+<title>報酬分析：訊號 vs 未來報酬</title>
 <style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>
-<h1>Phase 1：Signal vs 未來報酬</h1>
-<p class="meta">報告產生時間：2026-03-11 21:43 | 有效樣本數：438</p>
-<h2>一、依 Score 區間（final_score / score）</h2>
-<h3>ret_5d（未來報酬）</h3>
+<h1>報酬分析：訊號 vs 未來報酬</h1>
+<p class="meta">報告產生時間：2026-03-11 22:03 ｜ 有效樣本數：438</p>
+<h2>一、依分數區間看未來報酬</h2>
+<h3>ret_5d（未來報酬分佈）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -36,10 +36,10 @@
     <tr>
       <th class="n">40-60</th>
       <td>309.0000</td>
-      <td>0.0309</td>
-      <td>0.0113</td>
-      <td>0.1057</td>
-      <td>56.6343</td>
+      <td>0.0315</td>
+      <td>0.0114</td>
+      <td>0.1059</td>
+      <td>56.9579</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
@@ -60,7 +60,7 @@
   </tbody>
 </table>
 <br/>
-<h3>ret_10d（未來報酬）</h3>
+<h3>ret_10d（未來報酬分佈）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -92,10 +92,10 @@
     <tr>
       <th class="n">40-60</th>
       <td>280.0000</td>
-      <td>0.0705</td>
-      <td>0.0445</td>
-      <td>0.1329</td>
-      <td>69.2857</td>
+      <td>0.0712</td>
+      <td>0.0454</td>
+      <td>0.1327</td>
+      <td>69.6429</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
@@ -116,7 +116,7 @@
   </tbody>
 </table>
 <br/>
-<h3>ret_20d（未來報酬）</h3>
+<h3>ret_20d（未來報酬分佈）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -148,10 +148,10 @@
     <tr>
       <th class="n">40-60</th>
       <td>230.0000</td>
-      <td>0.1259</td>
-      <td>0.0912</td>
-      <td>0.2065</td>
-      <td>69.5652</td>
+      <td>0.1271</td>
+      <td>0.0950</td>
+      <td>0.2060</td>
+      <td>70.0000</td>
     </tr>
     <tr>
       <th class="n">60-80</th>
@@ -172,9 +172,9 @@
   </tbody>
 </table>
 <br/>
-<p class="meta">解讀：mean/median 為該區間平均/中位報酬；win_rate% 為報酬&gt;0 的比例。可依此調整策略門檻（例如 70 分以上才做多）。</p>
-<h2>二、依 Monitor state（Whale Trend Monitor）</h2>
-<h3>ret_5d</h3>
+<p class="meta">解讀：平均值 / 中位數代表該分數區間的平均 / 典型報酬；勝率% 表示報酬 &gt; 0 的比例。可用來判斷「幾分以上進場，長期比較划算」。</p>
+<h2>二、依主力監測狀態看報酬（Whale Trend Monitor）</h2>
+<h3>ret_5d（不同狀態的未來報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -206,10 +206,10 @@
     <tr>
       <th class="n">FADING</th>
       <td>183</td>
-      <td>0.0404</td>
-      <td>0.0206</td>
-      <td>0.1166</td>
-      <td>61.7486</td>
+      <td>0.0415</td>
+      <td>0.0226</td>
+      <td>0.1168</td>
+      <td>62.2951</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -230,7 +230,7 @@
   </tbody>
 </table>
 <br/>
-<h3>ret_10d</h3>
+<h3>ret_10d（不同狀態的未來報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -262,10 +262,10 @@
     <tr>
       <th class="n">FADING</th>
       <td>171</td>
-      <td>0.0781</td>
-      <td>0.0484</td>
-      <td>0.1442</td>
-      <td>73.0994</td>
+      <td>0.0792</td>
+      <td>0.0511</td>
+      <td>0.1438</td>
+      <td>73.6842</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -286,7 +286,7 @@
   </tbody>
 </table>
 <br/>
-<h3>ret_20d</h3>
+<h3>ret_20d（不同狀態的未來報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -318,10 +318,10 @@
     <tr>
       <th class="n">FADING</th>
       <td>137</td>
-      <td>0.1341</td>
-      <td>0.1042</td>
-      <td>0.2170</td>
-      <td>71.5328</td>
+      <td>0.1362</td>
+      <td>0.1083</td>
+      <td>0.2161</td>
+      <td>72.2628</td>
     </tr>
     <tr>
       <th class="n">DISTRIBUTION</th>
@@ -342,9 +342,9 @@
   </tbody>
 </table>
 <br/>
-<p class="meta">解讀：比較 ACCUMULATION / MARKUP 與 NEUTRAL / DISTRIBUTION 的報酬差異，判斷哪些狀態值得當作進場/出場條件。</p>
-<h2>三、依 Inst × Margin × SBL Regime（策略池候選）</h2>
-<h3>ret_5d</h3>
+<p class="meta">解讀：比較 ACCUMULATION / MARKUP（吸籌、推升）與 NEUTRAL / DISTRIBUTION（中性、派發）的報酬差異，判斷哪些狀態適合當作進場 / 出場條件。</p>
+<h2>三、三大法人 × 融資 × 借券 狀態下的報酬</h2>
+<h3>ret_5d（不同資金壓力組合下的報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -374,17 +374,25 @@
       <td>46.3415</td>
     </tr>
     <tr>
+      <th class="n">BEAR_WITH_SHORT</th>
+      <td>11</td>
+      <td>-0.0087</td>
+      <td>-0.0091</td>
+      <td>0.0378</td>
+      <td>45.4545</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>397</td>
-      <td>0.0256</td>
-      <td>0.0134</td>
-      <td>0.0935</td>
-      <td>58.1864</td>
+      <td>386</td>
+      <td>0.0271</td>
+      <td>0.0144</td>
+      <td>0.0947</td>
+      <td>58.8083</td>
     </tr>
   </tbody>
 </table>
 <br/>
-<h3>ret_10d</h3>
+<h3>ret_10d（不同資金壓力組合下的報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -414,17 +422,25 @@
       <td>61.1111</td>
     </tr>
     <tr>
+      <th class="n">BEAR_WITH_SHORT</th>
+      <td>11</td>
+      <td>-0.0166</td>
+      <td>-0.0157</td>
+      <td>0.0468</td>
+      <td>36.3636</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>362</td>
-      <td>0.0585</td>
-      <td>0.0395</td>
-      <td>0.1246</td>
-      <td>68.2320</td>
+      <td>351</td>
+      <td>0.0614</td>
+      <td>0.0420</td>
+      <td>0.1255</td>
+      <td>69.5157</td>
     </tr>
   </tbody>
 </table>
 <br/>
-<h3>ret_20d</h3>
+<h3>ret_20d（不同資金壓力組合下的報酬）</h3>
 <table border="1" class="dataframe n">
   <thead>
     <tr style="text-align: right;">
@@ -454,15 +470,23 @@
       <td>96.1538</td>
     </tr>
     <tr>
+      <th class="n">BEAR_WITH_SHORT</th>
+      <td>6</td>
+      <td>-0.0625</td>
+      <td>-0.0782</td>
+      <td>0.0444</td>
+      <td>16.6667</td>
+    </tr>
+    <tr>
       <th class="n">OTHER</th>
-      <td>292</td>
-      <td>0.1258</td>
-      <td>0.0969</td>
-      <td>0.1997</td>
-      <td>70.2055</td>
+      <td>286</td>
+      <td>0.1307</td>
+      <td>0.1036</td>
+      <td>0.1994</td>
+      <td>71.6783</td>
     </tr>
   </tbody>
 </table>
 <br/>
-<p class="meta">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>
+<p class="meta">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多，且融資 / 借券壓力都不明顯」；BEAR_WITH_SHORT 則是「三大法人 20 日偏空，且借券壓力放大」。可用來設計多頭候選池（只挑 BULL_NO_SHORT），或避開高風險區（BEAR_WITH_SHORT）。</p>
 </body></html>

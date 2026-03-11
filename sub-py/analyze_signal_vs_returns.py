@@ -152,54 +152,54 @@ def write_html_report(
 
     html = []
     html.append("<!DOCTYPE html><html lang=\"zh-TW\"><head><meta charset=\"UTF-8\">")
-    html.append("<title>Phase 1: Signal vs 未來報酬</title>")
+    html.append("<title>報酬分析：訊號 vs 未來報酬</title>")
     html.append("<style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>")
-    html.append("<h1>Phase 1：Signal vs 未來報酬</h1>")
-    html.append(f"<p class=\"meta\">報告產生時間：{datetime.now().strftime('%Y-%m-%d %H:%M')} | 有效樣本數：{results.get('n_total', 0)}</p>")
+    html.append("<h1>報酬分析：訊號 vs 未來報酬</h1>")
+    html.append(f"<p class=\"meta\">報告產生時間：{datetime.now().strftime('%Y-%m-%d %H:%M')} ｜ 有效樣本數：{results.get('n_total', 0)}</p>")
 
     # By Score
-    html.append("<h2>一、依 Score 區間（final_score / score）</h2>")
+    html.append("<h2>一、依分數區間看未來報酬</h2>")
     for col in RET_COLS:
         if col not in results.get("by_score", {}):
             continue
         tb = results["by_score"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}（未來報酬）</h3>")
+        html.append(f"<h3>{col}（未來報酬分佈）</h3>")
         html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
         html.append("<br/>")
-    html.append("<p class=\"meta\">解讀：mean/median 為該區間平均/中位報酬；win_rate% 為報酬&gt;0 的比例。可依此調整策略門檻（例如 70 分以上才做多）。</p>")
+    html.append("<p class=\"meta\">解讀：平均值 / 中位數代表該分數區間的平均 / 典型報酬；勝率% 表示報酬 &gt; 0 的比例。可用來判斷「幾分以上進場，長期比較划算」。</p>")
     for fn in figure_files:
         if "ret_by_score_" in fn:
             name = os.path.basename(fn)
             html.append(f"<p><img class=\"fig\" src=\"{rel_fig}/{name}\" alt=\"{name}\"/></p>")
 
     # By Monitor state
-    html.append("<h2>二、依 Monitor state（Whale Trend Monitor）</h2>")
+    html.append("<h2>二、依主力監測狀態看報酬（Whale Trend Monitor）</h2>")
     for col in RET_COLS:
         if col not in results.get("by_state", {}):
             continue
         tb = results["by_state"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}</h3>")
+        html.append(f"<h3>{col}（不同狀態的未來報酬）</h3>")
         html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
         html.append("<br/>")
-    html.append("<p class=\"meta\">解讀：比較 ACCUMULATION / MARKUP 與 NEUTRAL / DISTRIBUTION 的報酬差異，判斷哪些狀態值得當作進場/出場條件。</p>")
+    html.append("<p class=\"meta\">解讀：比較 ACCUMULATION / MARKUP（吸籌、推升）與 NEUTRAL / DISTRIBUTION（中性、派發）的報酬差異，判斷哪些狀態適合當作進場 / 出場條件。</p>")
     for fn in figure_files:
         if "ret_by_state_" in fn:
             name = os.path.basename(fn)
             html.append(f"<p><img class=\"fig\" src=\"{rel_fig}/{name}\" alt=\"{name}\"/></p>")
 
     # By Inst × Margin × SBL Regime
-    html.append("<h2>三、依 Inst × Margin × SBL Regime（策略池候選）</h2>")
+    html.append("<h2>三、三大法人 × 融資 × 借券 狀態下的報酬</h2>")
     for col in RET_COLS:
         if col not in results.get("by_inst_regime", {}):
             continue
         tb = results["by_inst_regime"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}</h3>")
+        html.append(f"<h3>{col}（不同資金壓力組合下的報酬）</h3>")
         html.append(
             tb.to_html(classes="n", float_format="%.4f").replace(
                 "<th>", '<th class="n">'
@@ -207,8 +207,8 @@ def write_html_report(
         )
         html.append("<br/>")
     html.append(
-        "<p class=\"meta\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多且融資/借券壓力正常」；"
-        "BEAR_WITH_SHORT 代表「三大法人 20 日偏空且借券壓力放大」。可用來設計多頭候選池與避開池。</p>"
+        "<p class=\"meta\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多，且融資 / 借券壓力都不明顯」；"
+        "BEAR_WITH_SHORT 則是「三大法人 20 日偏空，且借券壓力放大」。可用來設計多頭候選池（只挑 BULL_NO_SHORT），或避開高風險區（BEAR_WITH_SHORT）。</p>"
     )
 
     html.append("</body></html>")
