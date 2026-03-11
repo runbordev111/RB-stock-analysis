@@ -625,15 +625,15 @@
       0.9056,
       0.717
     ],
-    "inst_foreign_net_5d": 0.0,
+    "inst_foreign_net_5d": -24929.0,
     "inst_trust_net_5d": 0.0,
-    "inst_three_net_5d": 0.0,
-    "inst_foreign_net_20d": 0.0,
+    "inst_three_net_5d": -454595.0,
+    "inst_foreign_net_20d": 2266636.0,
     "inst_trust_net_20d": 0.0,
-    "inst_three_net_20d": 0.0,
-    "inst_foreign_net_60d": 0.0,
+    "inst_three_net_20d": 2402476.0,
+    "inst_foreign_net_60d": 5034855.0,
     "inst_trust_net_60d": 0.0,
-    "inst_three_net_60d": 0.0,
+    "inst_three_net_60d": 5611639.0,
     "inst_three_align_5d": 0,
     "margin_balance_20d_change": 0.1003,
     "margin_risk_flag": 0,
@@ -642,7 +642,7 @@
     "sbl_volume_60d": 2308.0,
     "sbl_short_pressure_ratio_20d": 0.0,
     "sbl_short_pressure_flag": 0,
-    "inst_bull_no_short_pressure_flag": 0,
+    "inst_bull_no_short_pressure_flag": 1,
     "inst_bear_with_short_pressure_flag": 0,
     "top6_avg_wave_score": 0.68,
     "top6_max_wave_score": 0.85,
@@ -809,5 +809,5 @@
   "stock_id": "2338",
   "stock_name": "光罩",
   "probe_date": "2026-03-10",
-  "last_update": "2026-03-11 17:50"
+  "last_update": "2026-03-11 17:54"
 }

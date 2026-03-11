@@ -42,9 +42,9 @@ def compute_institutional_and_margin_signals(
         datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=lookback_days)
     ).strftime("%Y-%m-%d")
 
-    # --- 三大法人：使用個股三大法人買賣表 InstitutionalInvestorsBuySell ---
+    # --- 三大法人：使用 v4 個股三大法人買賣表 TaiwanStockInstitutionalInvestorsBuySell ---
     inst_df = client.request_data(
-        "InstitutionalInvestorsBuySell",
+        "TaiwanStockInstitutionalInvestorsBuySell",
         data_id=stock_id,
         start_date=start_date,
         end_date=end_date,
@@ -70,46 +70,128 @@ def compute_institutional_and_margin_signals(
         df["date"] = df["date"].astype(str)
         df = df.sort_values("date").reset_index(drop=True)
 
-        # FinMind 不同版本/文件的欄位名稱可能不同，這裡盡量涵蓋常見別名：
-        foreign = _numeric_col(
-            df,
-            [
-                # 舊版差額欄位
-                "ForeignInvestorsDiff",
-                "foreign_investor_diff",
-                "ForeignInvestorDiff",
-                # v4 常見命名：淨買賣超 / buy_sell
-                "ForeignInvestorsNetBuySell",
-                "foreign_investors_net_buy_sell",
-                "foreign_investors_buy_sell",
-                "foreign_investor_buy_sell",
-            ],
-        )
-        trust = _numeric_col(
-            df,
-            [
-                "InvestmentTrustDiff",
-                "investment_trust_diff",
-                "InvestTrustDiff",
-                "InvestmentTrustNetBuySell",
-                "investment_trust_net_buy_sell",
-                "investment_trust_buy_sell",
-            ],
-        )
-        dealer = _numeric_col(
-            df,
-            [
-                "DealerDiff",
-                "dealer_diff",
-                "SecuritiesDealerDiff",
-                "DealersDiff",
-                "DealersNetBuySell",
-                "dealers_net_buy_sell",
-                "dealers_buy_sell",
-            ],
-        )
+        # v4 TaiwanStockInstitutionalInvestorsBuySell 結構：
+        # date, stock_id, name, buy, sell
+        if "name" in df.columns and "buy" in df.columns and "sell" in df.columns:
 
-        three = foreign + trust + dealer
+            def _net_series(names: list[str]) -> pd.Series:
+                sub = df[df["name"].isin(names)].copy()
+                if sub.empty:
+                    return pd.Series(dtype=float)
+                sub["buy"] = pd.to_numeric(sub["buy"], errors="coerce").fillna(0.0)
+                sub["sell"] = pd.to_numeric(sub["sell"], errors="coerce").fillna(0.0)
+                sub["net"] = sub["buy"] - sub["sell"]
+                g = (
+                    sub.groupby("date", as_index=False)["net"]
+                    .sum()
+                    .sort_values("date")
+                    .reset_index(drop=True)
+                )
+                g["date"] = g["date"].astype(str)
+                return g.set_index("date")["net"]
+
+            all_dates = sorted(df["date"].astype(str).unique().tolist())
+            idx = pd.Index(all_dates, name="date")
+
+            # 外資
+            foreign = _net_series(["Foreign_Investor"]).reindex(idx).fillna(0.0)
+            # 投信
+            trust = _net_series(["Investment_Trust"]).reindex(idx).fillna(0.0)
+            # 自營商（含自營、自營避險）
+            dealer = _net_series(["Dealer_self", "Dealer_Hedging"]).reindex(idx).fillna(0.0)
+
+            three = foreign + trust + dealer
+
+            def _last_n_sum(s: pd.Series, n: int) -> float:
+                if s is None or s.empty:
+                    return 0.0
+                return float(s.tail(n).sum())
+
+            out["inst_foreign_net_5d"] = _last_n_sum(foreign, 5)
+            out["inst_trust_net_5d"] = _last_n_sum(trust, 5)
+            out["inst_three_net_5d"] = _last_n_sum(three, 5)
+
+            out["inst_foreign_net_20d"] = _last_n_sum(foreign, 20)
+            out["inst_trust_net_20d"] = _last_n_sum(trust, 20)
+            out["inst_three_net_20d"] = _last_n_sum(three, 20)
+
+            out["inst_foreign_net_60d"] = _last_n_sum(foreign, 60)
+            out["inst_trust_net_60d"] = _last_n_sum(trust, 60)
+            out["inst_three_net_60d"] = _last_n_sum(three, 60)
+
+            f5 = out["inst_foreign_net_5d"]
+            t5 = out["inst_trust_net_5d"]
+            d5 = _last_n_sum(dealer, 5)
+
+            def _sign(x: float) -> int:
+                if x > 0:
+                    return 1
+                if x < 0:
+                    return -1
+                return 0
+
+            sf, st, sd = _sign(f5), _sign(t5), _sign(d5)
+            out["inst_three_align_5d"] = sf if sf == st == sd and sf != 0 else 0
+
+        else:
+            # 若欄位結構非預期，退回舊的欄位猜測（可能全部為 0，但至少不中斷）
+            foreign = _numeric_col(
+                df,
+                [
+                    "ForeignInvestorsDiff",
+                    "foreign_investor_diff",
+                    "ForeignInvestorDiff",
+                ],
+            )
+            trust = _numeric_col(
+                df,
+                [
+                    "InvestmentTrustDiff",
+                    "investment_trust_diff",
+                    "InvestTrustDiff",
+                ],
+            )
+            dealer = _numeric_col(
+                df,
+                [
+                    "DealerDiff",
+                    "dealer_diff",
+                    "SecuritiesDealerDiff",
+                ],
+            )
+
+            three = foreign + trust + dealer
+
+            def _last_n_sum(s: pd.Series, n: int) -> float:
+                if s.empty:
+                    return 0.0
+                return float(s.tail(n).sum())
+
+            out["inst_foreign_net_5d"] = _last_n_sum(foreign, 5)
+            out["inst_trust_net_5d"] = _last_n_sum(trust, 5)
+            out["inst_three_net_5d"] = _last_n_sum(three, 5)
+
+            out["inst_foreign_net_20d"] = _last_n_sum(foreign, 20)
+            out["inst_trust_net_20d"] = _last_n_sum(trust, 20)
+            out["inst_three_net_20d"] = _last_n_sum(three, 20)
+
+            out["inst_foreign_net_60d"] = _last_n_sum(foreign, 60)
+            out["inst_trust_net_60d"] = _last_n_sum(trust, 60)
+            out["inst_three_net_60d"] = _last_n_sum(three, 60)
+
+            f5 = out["inst_foreign_net_5d"]
+            t5 = out["inst_trust_net_5d"]
+            d5 = _last_n_sum(dealer, 5)
+
+            def _sign(x: float) -> int:
+                if x > 0:
+                    return 1
+                if x < 0:
+                    return -1
+                return 0
+
+            sf, st, sd = _sign(f5), _sign(t5), _sign(d5)
+            out["inst_three_align_5d"] = sf if sf == st == sd and sf != 0 else 0
 
         def _last_n_sum(s: pd.Series, n: int) -> float:
             if s.empty:
