@@ -21,8 +21,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem Append log (under bat folder)
-echo %date% %time% - Run [StartCenter] (start_flask_rb) >> bat\Log.txt
+rem Append log (under ztemp folder)
+echo %date% %time% - Run [StartCenter] (start_flask_rb) >> ztemp\Log.txt
 
 rem Ensure venv exists; create if missing
 if not exist "venv\Scripts\activate.bat" (
