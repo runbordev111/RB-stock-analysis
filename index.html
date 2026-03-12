@@ -384,19 +384,24 @@
 
     html += '<h6 class="text-info-dash mt-4 mb-2">📈 Top 6 核心大戶：近十日買賣超累計軌跡(張)</h6><div class="chart-container"><canvas id="whaleChartCanvas"></canvas></div>';
 
-    html += '<h6 class="text-warning mt-4">Top 6 大戶</h6><div class="table-responsive"><table class="table table-dark table-hover border-secondary"><thead><tr>';
-    html += '<th>券商</th><th>類型</th><th class="text-end">10日</th><th class="text-end">5日</th><th class="text-end">1日</th><th class="text-end">成本</th><th>縣市</th></tr></thead><tbody>';
-    if (top6.length === 0) html += '<tr><td colspan="7" class="text-center text-muted">暫無大戶數據</td></tr>';
+    html += '<h6 class="text-warning mt-4">Top 6 大戶（綜合總覽）</h6><div class="table-responsive"><table class="table table-dark table-hover border-secondary"><thead><tr>';
+    html += '<th>券商</th><th>類型</th><th class="text-end">10日(千張)</th><th class="text-end">5日(千張)</th><th class="text-end">波段分數</th><th>波段類型</th><th class="text-end">成本</th><th class="text-end">距HQ(KM)</th></tr></thead><tbody>';
+    if (top6.length === 0) html += '<tr><td colspan="8" class="text-center text-muted">暫無大戶數據</td></tr>';
     else top6.forEach(function(b){
       const c = b.color || colorMap[b.broker_name] || '#888';
       const typeBadge = (b.broker_org_type==='foreign') ? '<span class="badge bg-secondary">外資</span>' : '<span class="badge bg-dark">本土</span>';
-      html += '<tr><td><span class="broker-chip" style="background:' + c + ';"></span><code>' + (b.broker_id||'') + '</code> <span style="color:' + c + '; font-weight:700;">' + (b.broker_name||'') + '</span></td>';
+      var ws = b.archetype_wave_score;
+      var wl = b.archetype_label || '';
+      var lbl = wl === 'swing_leader' ? '波段主力' : (wl === 'distributor' ? '派發/出貨' : (wl === 'flipper' ? '短線/隔日沖' : '混合'));
+      html += '<tr title=\"近10日/5日/1日淨買超(千張)：' + (b.net_10d!=null?b.net_10d:'-') + ' / ' + (b.net_5d!=null?b.net_5d:'-') + ' / ' + (b.net_1d!=null?b.net_1d:'-') + '\\n連買=' + (b.streak_buy!=null?b.streak_buy:'-') + '、連賣=' + (b.streak_sell!=null?b.streak_sell:'-') + '\">';
+      html += '<td><span class="broker-chip" style="background:' + c + ';"></span><code>' + (b.broker_id||'') + '</code> <span style="color:' + c + '; font-weight:700;">' + (b.broker_name||'') + '</span></td>';
       html += '<td>' + typeBadge + '</td>';
       html += '<td class="text-end ' + (b.net_10d>0?'buy-row':'sell-row') + '">' + (b.net_10d!= null ? b.net_10d : '-') + '</td>';
       html += '<td class="text-end ' + (b.net_5d>0?'buy-row':'sell-row') + '">' + (b.net_5d!= null ? b.net_5d : '-') + '</td>';
-      html += '<td class="text-end ' + (b.net_1d>0?'buy-row':'sell-row') + '">' + (b.net_1d!= null ? b.net_1d : '-') + '</td>';
+      html += '<td class="text-end text-warning">' + (ws!=null ? ws.toFixed(3) : '-') + '</td>';
+      html += '<td>' + lbl + '</td>';
       html += '<td class="text-end text-warning">' + (b.avg_price != null ? 'NT$ ' + b.avg_price : '-') + '</td>';
-      html += '<td class="text-secondary">' + (b.city || '-') + '</td></tr>';
+      html += '<td class="text-end text-info">' + (b.km_to_hq != null ? b.km_to_hq : '-') + '</td></tr>';
     });
     html += '</tbody></table></div></div></div></div>';
 
@@ -407,34 +412,14 @@
       var waveMax = sig.top6_max_wave_score != null ? sig.top6_max_wave_score : null;
       var waveLeader = sig.top6_wave_leader_name || sig.top6_wave_leader_id || '-';
       var aHtml = '<div class=\"col-lg-10\"><div class=\"card shadow-lg\"><div class=\"card-body\">';
-      aHtml += '<h5 class=\"card-title text-white mb-3\">Broker Archetype — Top 6 波段主力傾向</h5>';
-      aHtml += '<p class=\"dashboard-subtitle\">根據 Top 6 近 10 日淨買超 / 連買 / 連賣，估計每個券商「波段主力」傾向，並彙總成分數。</p>';
+      aHtml += '<h5 class=\"card-title text-white mb-3\">Broker Archetype — Top 6 波段主力概況</h5>';
+      aHtml += '<p class=\"dashboard-subtitle\">這裡僅保留整體指標：平均波段分數、最高分數與代表券商；各券商細節已整合到 Dashboard 的「Top 6 大戶（綜合總覽）」表格。</p>';
       aHtml += '<div class=\"row mb-3 g-3\">';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">Top6 平均波段分數</div><div class=\"metric-value\">' + (waveAvg!=null ? waveAvg.toFixed(3) : '-') + '</div></div></div>';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">Top6 最高波段分數</div><div class=\"metric-value\">' + (waveMax!=null ? waveMax.toFixed(3) : '-') + '</div></div></div>';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">代表券商</div><div class=\"metric-value\" style=\"font-size:1.15rem;\">' + waveLeader + '</div></div></div>';
       aHtml += '</div>';
-      aHtml += '<div class=\"table-responsive\"><table class=\"table table-dark table-hover border-secondary\"><thead><tr>';
-      aHtml += '<th>券商</th><th class=\"text-end\">10日(千張)</th><th class=\"text-end\">連買</th><th class=\"text-end\">連賣</th><th class=\"text-end\">波段分數</th><th>類型</th></tr></thead><tbody>';
-      if (!top6.length) {
-        aHtml += '<tr><td colspan=\"6\" class=\"text-center text-muted\">暫無 Top6 大戶資料</td></tr>';
-      } else {
-        top6.forEach(function(b){
-          var ws = b.archetype_wave_score;
-          var wl = b.archetype_label || '';
-          var lbl = wl === 'swing_leader' ? '波段主力' : (wl === 'distributor' ? '派發/出貨' : (wl === 'flipper' ? '短線/隔日沖' : '混合'));
-          aHtml += '<tr>';
-          aHtml += '<td><code>' + (b.broker_id||'') + '</code> ' + (b.broker_name||'') + '</td>';
-          aHtml += '<td class=\"text-end ' + (b.net_10d>0?'buy-row':'sell-row') + '\">' + (b.net_10d!=null ? b.net_10d : '-') + '</td>';
-          aHtml += '<td class=\"text-end\">' + (b.streak_buy!=null ? b.streak_buy : '-') + '</td>';
-          aHtml += '<td class=\"text-end\">' + (b.streak_sell!=null ? b.streak_sell : '-') + '</td>';
-          aHtml += '<td class=\"text-end text-warning\">' + (ws!=null ? ws.toFixed(3) : '-') + '</td>';
-          aHtml += '<td>' + lbl + '</td>';
-          aHtml += '</tr>';
-        });
-      }
-      aHtml += '</tbody></table></div>';
-      aHtml += '<p class=\"mt-3 dashboard-subtitle\">說明：分數愈高代表愈像「慢慢吃貨、連買不太賣」的波段主力；愈低則可能是短線或偏出貨型態。</p>';
+      aHtml += '<p class=\"mt-3 dashboard-subtitle\">說明：分數愈高代表愈像「慢慢吃貨、連買不太賣」的波段主力；愈低則可能是短線或偏出貨型態。詳細分點資訊請回到分數儀表板的 Top 6 表格查看。</p>';
       aHtml += '</div></div></div>';
       arch.innerHTML = aHtml;
     }
