@@ -167,7 +167,15 @@
   }
   function reasonZh(code){
     const map = {
-      pressure_sell_dominate: '壓力拋售主導',
+      dist_risk_on: '派發風險ON（集中風險）',
+      pressure_sell_dominate: '賣壓主導（買方壓力偏弱）',
+      coherence_fading: '群聚退潮（同批人一致性下降）',
+      price_confirmed: '價格確認（突破/TV訊號成立）',
+      stability_ok: '名單穩定（同一批人延續）',
+      pressure_buy: '買盤主導（壓力比偏買）',
+      coherence_persist: '群聚持續（20日持久度夠）',
+      neutral: '偏多偏空不明顯（建議觀察）',
+      no_reasons: '無原因（尚未產生）',
     };
     return map[code] || code;
   }
@@ -341,7 +349,7 @@
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">確認分數</div><div class="metric-value">' + (val.confirmation_score != null ? val.confirmation_score : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">20日波動率 (ATR%)</div><div class="metric-value">' + (risk.atr_pct_20d != null ? (risk.atr_pct_20d*100).toFixed(2) + '%' : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">成交動能(20D億)</div><div class="metric-value">' + (risk.avg_turnover_20d != null ? (risk.avg_turnover_20d/1e8).toFixed(2) : '-') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">失效條件</div><div class="metric-value" style="color:' + (risk.invalid_flag===1?'#e74c3c':'#2ecc71') + '">' + (risk.invalid_flag===1?'TRIGGER':'SAFE') + '</div></div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">失效條件</div><div class="metric-value" style="color:' + (risk.invalid_flag===1?'#e74c3c':'#2ecc71') + '">' + (risk.invalid_flag===1?'已觸發':'安全') + '</div></div></div></div>';
 
     var dr = (sig.dist_risk_flag || 0) ? 1 : 0;
     html += '<div class="row mb-4"><div class="col-md-6"><div class="metric-card" style="text-align:left;"><div class="metric-label">🧨 分佈風險 (Distribution Risk)</div><div class="metric-value" style="font-size:1.2rem; color:' + (dr?'#e74c3c':'#2ecc71') + '">' + (dr?'風險偏高':'風險正常') + '</div><div class="metric-label">' + (sig.dist_risk_tag || '') + '</div></div></div></div>';

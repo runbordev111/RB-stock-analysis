@@ -11,7 +11,11 @@ def _read_broker_master_any(data_path: str) -> pd.DataFrame:
     xlsx_path = os.path.join(data_path, "broker_dimensions_master_V3.xlsx")
     if os.path.exists(xlsx_path):
         try:
-            df = pd.read_excel(xlsx_path, sheet_name="broker_master_enriched", dtype=str).fillna("")
+            df = pd.read_excel(
+                xlsx_path,
+                sheet_name="broker_master_enriched",
+                dtype=str,
+            ).fillna("")
             return df
         except Exception as e:
             print(f"⚠️ 讀取 {xlsx_path} 失敗: {repr(e)}")
