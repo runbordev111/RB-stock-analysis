@@ -152,7 +152,7 @@ def _save_artifacts(
         joblib.dump(clf, pkl_path)
         print(f"  Model saved: {pkl_path}")
 
-    # 特徵重要度 CSV
+    # 特徵重要度 CSV（完整排序，HTML 只展示前 10 名）
     imp_df = pd.DataFrame(
         {"feature": feat_cols, "importance": importances}
     ).sort_values("importance", ascending=False)
@@ -160,20 +160,33 @@ def _save_artifacts(
     imp_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
     print(f"  Feature importance CSV: {csv_path}")
 
-    # 簡易 HTML 報表
+    # 簡易 HTML 報表（聚焦前 10 名關鍵特徵）
     html_path = os.path.join(DATA_PATH, f"ml_winrate_report_ret{horizon}d.html")
-    rows = imp_df.head(30).to_dict("records")
+    # 中文化常見關鍵特徵名稱，方便閱讀
+    label_map = {
+        "enh_cost_low": "主力成本帶下緣：主力這段期間多數買進量，大致不會低於此價",
+        "enh_cost_high": "主力成本帶上緣：主力成本帶的上緣價位，長期站上代表相對強勢",
+    }
+
+    def _pretty_feature(name: str) -> str:
+        desc = label_map.get(name)
+        if desc:
+            return f"{desc}（{name}）"
+        return name
+
+    # 主清單：只顯示前 10 名
+    rows = imp_df.head(10).to_dict("records")
     rows_html = "".join(
-        f'<tr><td>{r["feature"]}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
+        f'<tr><td>{_pretty_feature(r["feature"])}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
         for r in rows
     )
-    # 聚焦顯示 Inst / Margin / SBL 相關特徵
+    # 聚焦顯示 Inst / Margin / SBL 相關特徵（前 10 名）
     focus_df = imp_df[
         imp_df["feature"].str.startswith(("inst_", "margin_", "sbl_"))
     ].copy()
-    focus_rows = focus_df.head(20).to_dict("records")
+    focus_rows = focus_df.head(10).to_dict("records")
     focus_html = "".join(
-        f'<tr><td>{r["feature"]}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
+        f'<tr><td>{_pretty_feature(r["feature"])}</td><td class="text-end">{r["importance"]:.4f}</td></tr>'
         for r in focus_rows
     )
 
@@ -203,12 +216,13 @@ table{{border-collapse:collapse;width:100%;max-width:760px;}} th,td{{border:1px 
 th{{background:#333;color:#f1c40f;}} .metric{{margin:12px 0;}}</style></head>
 <body>
 <h1>勝率評估表（未來 {horizon} 日報酬 &gt; 0）</h1>
+<div class="metric">說明：ret_5d = 短線警示燈（看是否很快出現反轉或加速）；ret_10d = 波段輔助燈（觀察半個波段內勝率）；ret_20d = 主要決策燈（完整一個波段的勝率表現）。</div>
 <div class="metric">資料切分方式：{split_method}</div>
 <div class="metric">訓練集正確率 = {acc_train:.3f} &nbsp;|&nbsp; 測試集正確率 = {acc_test:.3f}</div>
 <div class="metric">訓練集 AUC = {auc_train:.3f} &nbsp;|&nbsp; 測試集 AUC = {auc_test:.3f}</div>
-<h2>前 30 名影響勝率的特徵</h2>
+<h2>前 10 名影響勝率的特徵</h2>
 <table><thead><tr><th>特徵名稱</th><th class="text-end">重要度</th></tr></thead><tbody>{rows_html}</tbody></table>
-<h2>三大法人 / 融資 / 借券 相關特徵（前 20 名）</h2>
+<h2>三大法人 / 融資 / 借券 相關特徵（前 10 名）</h2>
 <table><thead><tr><th>特徵名稱</th><th class="text-end">重要度</th></tr></thead><tbody>{focus_html or '<tr><td colspan="2">尚無 inst_ / margin_ / sbl_ 相關特徵</td></tr>'}</tbody></table>
 <h2>自訂情境下的勝率（測試集）</h2>
 <table><thead><tr><th>條件名稱</th><th class="text-end">樣本數</th><th class="text-end">勝率（win_rate）</th></tr></thead><tbody>{rule_html or '<tr><td colspan="3">尚未定義條件或樣本數不足</td></tr>'}</tbody></table>
