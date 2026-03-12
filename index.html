@@ -223,6 +223,7 @@
     html += '<div class="metric-label">📌 大戶監測趨勢</div>';
     html += '<div style="font-size:1.55rem; font-weight:900; color:' + msColor(ms) + ';">' + msZh(ms) + '</div>';
     if (mr.length) html += '<div class="mt-2">' + mr.slice(0,6).map(function(r){ return '<span class="tag-pill">' + reasonZh(r) + '</span>'; }).join('') + '</div>';
+    html += '<div class="mt-2" style="font-size:0.8rem; color:#9ca3af;">小提示：外/本分歧只是警示燈，真正判斷「吃貨或倒貨」請同時看主力成本帶（收盤在成本區上/中/下）、Top 6 波段分數站在哪一邊，以及 5日/10日/20日 NetBuy 的變化。</div>';
     html += '</div>';
 
     html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">20日集中度 (%)</div><div class="metric-value">' + c20 + '%</div></div></div>';

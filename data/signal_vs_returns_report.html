@@ -2,7 +2,7 @@
 <title>報酬分析：訊號 vs 未來報酬</title>
 <style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>
 <h1>報酬分析：訊號 vs 未來報酬</h1>
-<p class="meta">報告產生時間：2026-03-12 21:53 ｜ 有效樣本數：438</p>
+<p class="meta">報告產生時間：2026-03-13 00:01 ｜ 有效樣本數：438</p>
 <h2>一、依分數區間看未來報酬</h2>
 <h3>ret_5d（未來報酬分佈）</h3>
 <table border="1" class="dataframe n">
@@ -173,6 +173,9 @@
 </table>
 <br/>
 <p class="meta">解讀：平均值 / 中位數代表該分數區間的平均 / 典型報酬；勝率% 表示報酬 &gt; 0 的比例。可用來判斷「幾分以上進場，長期比較划算」。</p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_5d.png" alt="ret_by_score_ret_5d.png"/></p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_10d.png" alt="ret_by_score_ret_10d.png"/></p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_score_ret_20d.png" alt="ret_by_score_ret_20d.png"/></p>
 <h2>二、依主力監測狀態看報酬（Whale Trend Monitor）</h2>
 <h3>ret_5d（不同狀態的未來報酬）</h3>
 <table border="1" class="dataframe n">
@@ -343,6 +346,9 @@
 </table>
 <br/>
 <p class="meta">解讀：比較 ACCUMULATION / MARKUP（吸籌、推升）與 NEUTRAL / DISTRIBUTION（中性、派發）的報酬差異，判斷哪些狀態適合當作進場 / 出場條件。</p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_5d.png" alt="ret_by_state_ret_5d.png"/></p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_10d.png" alt="ret_by_state_ret_10d.png"/></p>
+<p><img class="fig" src="signal_vs_returns_figures/ret_by_state_ret_20d.png" alt="ret_by_state_ret_20d.png"/></p>
 <h2>三、三大法人 × 融資 × 借券 狀態下的報酬</h2>
 <h3>ret_5d（不同資金壓力組合下的報酬）</h3>
 <table border="1" class="dataframe n">
