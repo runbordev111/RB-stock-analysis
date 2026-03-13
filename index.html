@@ -56,6 +56,16 @@
     <span class="badge bg-secondary" id="versionBadge">版本：載入中…</span>
   </div>
 
+  <!-- 全域股票選擇器：所有分頁共用 -->
+  <div class="row justify-content-center mb-3">
+    <div class="col-lg-10 d-flex align-items-center gap-3">
+      <label class="mb-0 fs-3 fw-bold text-white" for="stockSelect">切換股票：</label>
+      <select id="stockSelect" class="form-select form-select-lg w-auto bg-dark text-white border-secondary" style="font-size:1.75rem;">
+        <option value="">載入中…</option>
+      </select>
+    </div>
+  </div>
+
   <ul class="nav nav-tabs mb-3" id="rbTabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="tab-dashboard" data-bs-toggle="tab"
@@ -79,15 +89,6 @@
 
   <div class="tab-content" id="rbTabsContent">
     <div class="tab-pane fade show active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
-      <div class="row justify-content-center mb-3">
-        <div class="col-lg-10">
-          <label class="mb-0 fs-3 fw-bold text-white">切換股票：</label>
-          <select id="stockSelect" class="form-select form-select-lg w-auto bg-dark text-white border-secondary" style="font-size:1.75rem;">
-            <option value="">載入中…</option>
-          </select>
-        </div>
-      </div>
-
       <div id="content"></div>
       <div id="loading" class="text-center text-muted py-5">選擇股票後將載入數據…</div>
     </div>
