@@ -1,8 +1,8 @@
 @echo off
 setlocal
 
-rem Project root (auto-detect)
-set "ROOT=%~dp0.."
+rem Project root (auto-detect：本檔已在專案根目錄)
+set "ROOT=%~dp0"
 for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 
 if not exist "%ROOT%" (

@@ -18,8 +18,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem Append log (under bat folder)
-echo %date% %time% - Run [StartCenter] (scraper_chip) >> bat\Log2.txt
+rem Append log (store under ztemp\Log.txt instead of bat\Log2.txt)
+if not exist "%ROOT%\ztemp" mkdir "%ROOT%\ztemp"
+echo %date% %time% - Run [StartCenter] (scraper_chip) >> "%ROOT%\ztemp\Log.txt"
 
 rem Ensure venv exists; create if missing
 if not exist "venv\Scripts\activate.bat" (

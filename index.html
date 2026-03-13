@@ -411,15 +411,15 @@
       var waveAvg = sig.top6_avg_wave_score != null ? sig.top6_avg_wave_score : null;
       var waveMax = sig.top6_max_wave_score != null ? sig.top6_max_wave_score : null;
       var waveLeader = sig.top6_wave_leader_name || sig.top6_wave_leader_id || '-';
-      var aHtml = '<div class=\"col-lg-10\"><div class=\"card shadow-lg\"><div class=\"card-body\">';
-      aHtml += '<h5 class=\"card-title text-white mb-3\">Broker Archetype — Top 6 波段主力概況</h5>';
-      aHtml += '<p class=\"dashboard-subtitle\">這裡僅保留整體指標：平均波段分數、最高分數與代表券商；各券商細節已整合到 Dashboard 的「Top 6 大戶（綜合總覽）」表格。</p>';
-      aHtml += '<div class=\"row mb-3 g-3\">';
+      var aHtml = '<div class=\"col-lg-10 mx-auto\"><div class=\"card shadow-lg h-100\"><div class=\"card-body d-flex flex-column justify-content-between\">';
+      aHtml += '<h5 class=\"card-title text-white mb-3\">券商原型 — Top 6 波段主力概況</h5>';
+      aHtml += '<p class=\"dashboard-subtitle\">這裡僅保留整體指標：平均波段分數、最高分數與代表券商；各券商細節已整合到分數儀表板中的「Top 6 大戶（綜合總覽）」區塊。</p>';
+      aHtml += '<div class=\"row mb-3 g-3 align-items-stretch\">';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">Top6 平均波段分數</div><div class=\"metric-value\">' + (waveAvg!=null ? waveAvg.toFixed(3) : '-') + '</div></div></div>';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">Top6 最高波段分數</div><div class=\"metric-value\">' + (waveMax!=null ? waveMax.toFixed(3) : '-') + '</div></div></div>';
       aHtml += '<div class=\"col-md-4\"><div class=\"metric-card\"><div class=\"metric-label\">代表券商</div><div class=\"metric-value\" style=\"font-size:1.15rem;\">' + waveLeader + '</div></div></div>';
       aHtml += '</div>';
-      aHtml += '<p class=\"mt-3 dashboard-subtitle\">說明：分數愈高代表愈像「慢慢吃貨、連買不太賣」的波段主力；愈低則可能是短線或偏出貨型態。詳細分點資訊請回到分數儀表板的 Top 6 表格查看。</p>';
+      aHtml += '<p class=\"mt-3 mb-0 dashboard-subtitle\">說明：分數愈高代表愈像「慢慢吃貨、連買不太賣」的波段主力；愈低則可能是短線或偏出貨型態。詳細分點資訊請回到分數儀表板的 Top 6 表格查看。</p>';
       aHtml += '</div></div></div>';
       arch.innerHTML = aHtml;
     }
