@@ -329,8 +329,8 @@
     var val = sig.validation || {};
     var risk = sig.risk || {};
     html += '<h6 class="text-info-dash mt-4 mb-2">✅ 交易有效性 / 🛡 風控</h6><div class="row mb-4 g-3">';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">突破成立</div><div class="metric-value" style="color:' + (val.breakout_flag===1?'#2ecc71':'#999') + '">' + (val.breakout_flag===1?'PASS':'FAIL') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">背離警示</div><div class="metric-value" style="color:' + (val.divergence_flag===1?'#f1c40f':'#2ecc71') + '">' + (val.divergence_flag===1?'WARN':'OK') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">突破成立</div><div class="metric-value" style="color:' + (val.breakout_flag===1?'#2ecc71':'#999') + '">' + (val.breakout_flag===1?'通過':'未通過') + '</div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">背離警示</div><div class="metric-value" style="color:' + (val.divergence_flag===1?'#f1c40f':'#2ecc71') + '">' + (val.divergence_flag===1?'有背離':'正常') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">確認分數</div><div class="metric-value">' + (val.confirmation_score != null ? val.confirmation_score : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">20日波動率 (ATR%)</div><div class="metric-value">' + (risk.atr_pct_20d != null ? (risk.atr_pct_20d*100).toFixed(2) + '%' : '-') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">成交動能(20D億)</div><div class="metric-value">' + (risk.avg_turnover_20d != null ? (risk.avg_turnover_20d/1e8).toFixed(2) : '-') + '</div></div></div>';
@@ -394,8 +394,8 @@
     var waveAvg = sig.top6_avg_wave_score != null ? sig.top6_avg_wave_score : null;
     var waveMax = sig.top6_max_wave_score != null ? sig.top6_max_wave_score : null;
     var waveLeader = sig.top6_wave_leader_name || sig.top6_wave_leader_id || '-';
-    html += '<div class="col-lg-10 mt-3"><div class="card shadow-lg"><div class="card-body">';
-    html += '<h6 class="card-title text-white mb-2">Broker Archetype — Top 6 波段主力概況</h6>';
+    html += '<div class="col-lg-10 mx-auto mt-3"><div class="card shadow-lg h-100"><div class="card-body d-flex flex-column justify-content-between">';
+    html += '<h6 class="card-title text-white mb-2">券商原型 — Top 6 波段主力概況</h6>';
     html += '<p class="dashboard-subtitle">根據 Top 6 近 10 日淨買超與連買 / 連賣，估計每家券商的「波段主力」傾向，並彙總成整體分數。</p>';
     html += '<div class="row mb-2 g-3">';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">Top6 平均波段分數</div><div class="metric-value">' + (waveAvg!=null ? waveAvg.toFixed(3) : '-') + '</div></div></div>';
