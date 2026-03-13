@@ -1,3 +1,4 @@
 git checkout msung-data-mining
 
-
+如需回測，可以在有資源的環境，手動跑：
+python sub-py\backtest_signals_60d.py --stock_ids 6805 --days 60 --horizons 5,10,20

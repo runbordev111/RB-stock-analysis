@@ -68,13 +68,9 @@ echo [2/6] Rebuilding data\manifest.json ...
 python sub-py\build_manifest.py
 
 echo.
-echo [3/6] Running backtest_signals_60d.py ...
-python sub-py\backtest_signals_60d.py --stock_ids %STOCK_IDS% --days %DAYS% --horizons 5,10,20
-if errorlevel 1 (
-    echo backtest_signals_60d.py failed. Please check the error above.
-    pause
-    exit /b 1
-)
+echo [3/6] (skip) backtest_signals_60d.py ...
+echo       已略過本機回測（backtest_signals_60d.py），如需回測請手動執行：
+echo       python sub-py\backtest_signals_60d.py --stock_ids %STOCK_IDS% --days %DAYS% --horizons 5,10,20
 
 echo.
 echo [4/6] Running Phase 1 analysis (analyze_signal_vs_returns.py) ...
