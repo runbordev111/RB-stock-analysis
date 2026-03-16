@@ -2,7 +2,7 @@
 <title>報酬分析：訊號 vs 未來報酬</title>
 <style>body{font-family:Segoe UI,Microsoft JhengHei,sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px;} h1,h2{color:#f1c40f;} h3{color:#ddd;} table{border-collapse:collapse;margin:12px 0;} th,td{border:1px solid #444;padding:8px 12px;text-align:right;} th{background:#333;color:#f1c40f;} .n{text-align:center;} .meta{color:#888;font-size:0.9em;} .fig{max-width:90%;margin:16px 0;border:1px solid #444;}</style></head><body>
 <h1>報酬分析：訊號 vs 未來報酬</h1>
-<p class="meta">報告產生時間：2026-03-16 21:10 ｜ 有效樣本數：396</p>
+<p class="meta">報告產生時間：2026-03-16 21:31 ｜ 有效樣本數：396</p>
 <h2>一、依分數區間看未來報酬</h2>
 <h3>5日報酬（ret_5d）（依分數區間）</h3>
 <table border="1" class="dataframe n">
@@ -10,10 +10,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">score_bucket</th>
@@ -66,10 +66,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">score_bucket</th>
@@ -122,10 +122,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">score_bucket</th>
@@ -183,10 +183,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">monitor_state</th>
@@ -199,7 +199,7 @@
   </thead>
   <tbody>
     <tr>
-      <th class="n">ACCUMULATION</th>
+      <th class="n">ACCUMULATION（吸籌/佈局期）</th>
       <td>3</td>
       <td>-0.0093</td>
       <td>-0.0139</td>
@@ -207,7 +207,7 @@
       <td>0.0000</td>
     </tr>
     <tr>
-      <th class="n">FADING</th>
+      <th class="n">FADING（退潮警戒）</th>
       <td>145</td>
       <td>0.0372</td>
       <td>0.0143</td>
@@ -215,7 +215,7 @@
       <td>60.0000</td>
     </tr>
     <tr>
-      <th class="n">DISTRIBUTION</th>
+      <th class="n">DISTRIBUTION（派發警戒）</th>
       <td>42</td>
       <td>0.0027</td>
       <td>-0.0012</td>
@@ -223,7 +223,7 @@
       <td>47.6190</td>
     </tr>
     <tr>
-      <th class="n">NEUTRAL</th>
+      <th class="n">NEUTRAL（中性觀察）</th>
       <td>206</td>
       <td>0.0140</td>
       <td>0.0074</td>
@@ -239,10 +239,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">monitor_state</th>
@@ -255,7 +255,7 @@
   </thead>
   <tbody>
     <tr>
-      <th class="n">ACCUMULATION</th>
+      <th class="n">ACCUMULATION（吸籌/佈局期）</th>
       <td>3</td>
       <td>-0.0198</td>
       <td>-0.0211</td>
@@ -263,7 +263,7 @@
       <td>0.0000</td>
     </tr>
     <tr>
-      <th class="n">FADING</th>
+      <th class="n">FADING（退潮警戒）</th>
       <td>129</td>
       <td>0.0772</td>
       <td>0.0566</td>
@@ -271,7 +271,7 @@
       <td>75.9690</td>
     </tr>
     <tr>
-      <th class="n">DISTRIBUTION</th>
+      <th class="n">DISTRIBUTION（派發警戒）</th>
       <td>42</td>
       <td>0.0046</td>
       <td>-0.0094</td>
@@ -279,7 +279,7 @@
       <td>45.2381</td>
     </tr>
     <tr>
-      <th class="n">NEUTRAL</th>
+      <th class="n">NEUTRAL（中性觀察）</th>
       <td>182</td>
       <td>0.0459</td>
       <td>0.0316</td>
@@ -295,10 +295,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">monitor_state</th>
@@ -311,7 +311,7 @@
   </thead>
   <tbody>
     <tr>
-      <th class="n">ACCUMULATION</th>
+      <th class="n">ACCUMULATION（吸籌/佈局期）</th>
       <td>3</td>
       <td>0.0315</td>
       <td>0.0347</td>
@@ -319,7 +319,7 @@
       <td>100.0000</td>
     </tr>
     <tr>
-      <th class="n">FADING</th>
+      <th class="n">FADING（退潮警戒）</th>
       <td>97</td>
       <td>0.0992</td>
       <td>0.0854</td>
@@ -327,7 +327,7 @@
       <td>69.0722</td>
     </tr>
     <tr>
-      <th class="n">DISTRIBUTION</th>
+      <th class="n">DISTRIBUTION（派發警戒）</th>
       <td>40</td>
       <td>0.0172</td>
       <td>0.0206</td>
@@ -335,7 +335,7 @@
       <td>52.5000</td>
     </tr>
     <tr>
-      <th class="n">NEUTRAL</th>
+      <th class="n">NEUTRAL（中性觀察）</th>
       <td>136</td>
       <td>0.1430</td>
       <td>0.1223</td>
@@ -356,10 +356,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">inst_regime_flag</th>
@@ -404,10 +404,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">inst_regime_flag</th>
@@ -452,10 +452,10 @@
     <tr style="text-align: right;">
       <th class="n"></th>
       <th class="n">n</th>
-      <th class="n">mean</th>
-      <th class="n">median</th>
-      <th class="n">std</th>
-      <th class="n">win_rate%</th>
+      <th class="n">平均值(mean)</th>
+      <th class="n">中位數(median)</th>
+      <th class="n">標準差(std)</th>
+      <th class="n">勝率%(win_rate)</th>
     </tr>
     <tr>
       <th class="n">inst_regime_flag</th>

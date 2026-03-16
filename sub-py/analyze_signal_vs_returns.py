@@ -164,6 +164,37 @@ def write_html_report(
         "ret_20d": "20日報酬（ret_20d）",
     }
 
+    # 欄位名稱中文化（mean/median/std/win_rate%）
+    col_rename = {
+        "mean": "平均值(mean)",
+        "median": "中位數(median)",
+        "std": "標準差(std)",
+        "win_rate%": "勝率%(win_rate)",
+    }
+
+    # Monitor state 狀態值中文化
+    state_rename = {
+        "ACCUMULATION": "ACCUMULATION（吸籌/佈局期）",
+        "MARKUP": "MARKUP（推升/趨勢延續）",
+        "FADING": "FADING（退潮警戒）",
+        "DISTRIBUTION": "DISTRIBUTION（派發警戒）",
+        "NEUTRAL": "NEUTRAL（中性觀察）",
+    }
+
+    def _to_html_renamed(tb: pd.DataFrame, index_name: str | None = None) -> str:
+        if tb is None or tb.empty:
+            return "<p class=\"meta\">此區間暫無樣本。</p>"
+        tb2 = tb.copy()
+        # 重新命名欄位
+        tb2.rename(columns=col_rename, inplace=True)
+        # 重新命名 index（例如 monitor_state）
+        if index_name and tb2.index.name == index_name:
+            tb2 = tb2.rename(index=state_rename)
+        return (
+            tb2.to_html(classes="n", float_format="%.4f")
+            .replace("<th>", "<th class=\"n\">")
+        )
+
     # By Score
     html.append("<h2>一、依分數區間看未來報酬</h2>")
     for col in RET_COLS:
@@ -174,7 +205,7 @@ def write_html_report(
             continue
         title = ret_label.get(col, col)
         html.append(f"<h3>{title}（依分數區間）</h3>")
-        html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
+        html.append(_to_html_renamed(tb))
         html.append("<br/>")
     html.append("<p class=\"meta\">解讀：平均值 / 中位數代表該分數區間的平均 / 典型報酬；勝率% 表示報酬 &gt; 0 的比例。可用來判斷「幾分以上進場，長期比較划算」。</p>")
     for fn in figure_files:
@@ -192,7 +223,7 @@ def write_html_report(
             continue
         title = ret_label.get(col, col)
         html.append(f"<h3>{title}（不同狀態）</h3>")
-        html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
+        html.append(_to_html_renamed(tb, index_name="monitor_state"))
         html.append("<br/>")
     html.append("<p class=\"meta\">解讀：比較 ACCUMULATION / MARKUP（吸籌、推升）與 NEUTRAL / DISTRIBUTION（中性、派發）的報酬差異，判斷哪些狀態適合當作進場 / 出場條件。</p>")
     for fn in figure_files:
@@ -211,9 +242,7 @@ def write_html_report(
         title = ret_label.get(col, col)
         html.append(f"<h3>{title}（不同資金壓力組合）</h3>")
         html.append(
-            tb.to_html(classes="n", float_format="%.4f").replace(
-                "<th>", '<th class="n">'
-            )
+            _to_html_renamed(tb)
         )
         html.append("<br/>")
     html.append(
