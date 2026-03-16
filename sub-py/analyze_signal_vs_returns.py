@@ -157,6 +157,13 @@ def write_html_report(
     html.append("<h1>報酬分析：訊號 vs 未來報酬</h1>")
     html.append(f"<p class=\"meta\">報告產生時間：{datetime.now().strftime('%Y-%m-%d %H:%M')} ｜ 有效樣本數：{results.get('n_total', 0)}</p>")
 
+    # 映射 ret_* 欄位為中文說明
+    ret_label = {
+        "ret_5d": "5日報酬（ret_5d）",
+        "ret_10d": "10日報酬（ret_10d）",
+        "ret_20d": "20日報酬（ret_20d）",
+    }
+
     # By Score
     html.append("<h2>一、依分數區間看未來報酬</h2>")
     for col in RET_COLS:
@@ -165,7 +172,8 @@ def write_html_report(
         tb = results["by_score"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}（未來報酬分佈）</h3>")
+        title = ret_label.get(col, col)
+        html.append(f"<h3>{title}（依分數區間）</h3>")
         html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
         html.append("<br/>")
     html.append("<p class=\"meta\">解讀：平均值 / 中位數代表該分數區間的平均 / 典型報酬；勝率% 表示報酬 &gt; 0 的比例。可用來判斷「幾分以上進場，長期比較划算」。</p>")
@@ -182,7 +190,8 @@ def write_html_report(
         tb = results["by_state"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}（不同狀態的未來報酬）</h3>")
+        title = ret_label.get(col, col)
+        html.append(f"<h3>{title}（不同狀態）</h3>")
         html.append(tb.to_html(classes="n", float_format="%.4f").replace("<th>", "<th class=\"n\">"))
         html.append("<br/>")
     html.append("<p class=\"meta\">解讀：比較 ACCUMULATION / MARKUP（吸籌、推升）與 NEUTRAL / DISTRIBUTION（中性、派發）的報酬差異，判斷哪些狀態適合當作進場 / 出場條件。</p>")
@@ -199,7 +208,8 @@ def write_html_report(
         tb = results["by_inst_regime"][col]
         if tb.empty:
             continue
-        html.append(f"<h3>{col}（不同資金壓力組合下的報酬）</h3>")
+        title = ret_label.get(col, col)
+        html.append(f"<h3>{title}（不同資金壓力組合）</h3>")
         html.append(
             tb.to_html(classes="n", float_format="%.4f").replace(
                 "<th>", '<th class="n">'
@@ -214,7 +224,7 @@ def write_html_report(
     html.append("</body></html>")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(html))
-    print(f"📄 HTML 報告已寫入：{output_path}")
+    print(f"[INFO] HTML 報告已寫入：{output_path}")
 
 
 def try_plot_figures(df: pd.DataFrame, figures_dir: str, ret_cols: list) -> list:

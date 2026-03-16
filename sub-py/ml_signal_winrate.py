@@ -164,8 +164,26 @@ def _save_artifacts(
     html_path = os.path.join(DATA_PATH, f"ml_winrate_report_ret{horizon}d.html")
     # 中文化常見關鍵特徵名稱，方便閱讀
     label_map = {
+        # Geo / 成本帶相關
         "enh_cost_low": "主力成本帶下緣：主力這段期間多數買進量，大致不會低於此價",
         "enh_cost_high": "主力成本帶上緣：主力成本帶的上緣價位，長期站上代表相對強勢",
+        # 三大法人相關
+        "inst_foreign_net_5d": "外資 5日買賣超",
+        "inst_foreign_net_20d": "外資 20日買賣超",
+        "inst_foreign_net_60d": "外資 60日買賣超",
+        "inst_trust_net_5d": "投信 5日買賣超",
+        "inst_trust_net_20d": "投信 20日買賣超",
+        "inst_trust_net_60d": "投信 60日買賣超",
+        "inst_three_net_5d": "三大法人 5日買賣超",
+        "inst_three_net_20d": "三大法人 20日買賣超",
+        "inst_three_net_60d": "三大法人 60日買賣超",
+        # 買賣壓 / 借券 / 融資相關
+        "sbl_volume_60d": "借券成交量 60日",
+        "margin_balance_20d_change": "融資餘額 20日變化",
+        # 分數 / 百分位相關
+        "final_score_pctile": "最終分數百分位",
+        "regime_score": "趨勢底座分數",
+        "regime_score_pctile": "趨勢底座分數百分位",
     }
 
     def _pretty_feature(name: str) -> str:
