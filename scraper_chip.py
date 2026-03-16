@@ -70,7 +70,7 @@ def run_strategy(
     load_dotenv()
     token = os.getenv("FINMIND_API_TOKEN", "").strip()
     if not token:
-        print("❌ 找不到 FINMIND_API_TOKEN，請在 .env 設定 FINMIND_API_TOKEN=你的token")
+        print("[ERROR] 找不到 FINMIND_API_TOKEN，請在 .env 設定 FINMIND_API_TOKEN=你的 token")
         return
 
     client = FinMindClient(token=token, verify_ssl=verify_ssl)
@@ -84,7 +84,7 @@ def run_strategy(
     available_dates = [d for d in all_dates if d < today_str]
 
     if not available_dates:
-        print("❌ 無法取得交易日，終止。")
+        print("[ERROR] 無法取得交易日，終止。")
         return
 
     last_trading_date = available_dates[-1]
@@ -101,8 +101,7 @@ def run_strategy(
 
         if existing_probe == last_trading_date:
             print(
-                f"✅ {stock_id} 已有最新資料（probe_date={existing_probe}），"
-                "略過 FinMind 抓取與重新分析。"
+                f"[INFO] {stock_id} 已有最新資料（probe_date={existing_probe}），略過 FinMind 抓取與重新分析。"
             )
             return
 
@@ -116,7 +115,7 @@ def run_strategy(
     target_dates = available_dates[-days:]
 
     if len(target_dates) < days:
-        print(f"⚠️ 交易日不足 {days} 天，實際取得 {len(target_dates)} 天: {target_dates[0]} ~ {target_dates[-1]}")
+        print(f"[WARN] 交易日不足 {days} 天，實際取得 {len(target_dates)} 天: {target_dates[0]} ~ {target_dates[-1]}")
 
     # 2) 抓分點明細（增量：先查快取，沒有才向 FinMind 請求）
     stock_name = adapter.get_stock_name(stock_id)
@@ -150,7 +149,7 @@ def run_strategy(
         print("  -> First run: cache populated. Next run will only fetch new dates.")
 
     if not frames:
-        print("❌ 全部日期分點都為空：請檢查 sponsor 權限或 token 是否正確。")
+        print("[ERROR] 全部日期分點都為空：請檢查 sponsor 權限或 token 是否正確。")
         return
 
     # 3) 分析與輸出
@@ -163,7 +162,7 @@ def run_strategy(
         debug_tv=debug_tv,
     )
     if insight is None or boss_list_df is None:
-        print("❌ 分析失敗：分點欄位不齊或資料格式異常。")
+        print("[ERROR] 分析失敗：分點欄位不齊或資料格式異常。")
         return
 
     # stock meta
@@ -175,11 +174,11 @@ def run_strategy(
     json_path = os.path.join(DATA_PATH, f"{stock_id}_whale_track.json")
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(insight, f, ensure_ascii=False, indent=2)
-    print(f"💾 JSON輸出完成: {json_path}")
+    print(f"[INFO] JSON輸出完成: {json_path}")
 
     csv_path = os.path.join(DATA_PATH, f"{stock_id}_boss_list.csv")
     boss_list_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-    print(f"💾 CSV輸出完成: {csv_path}")
+    print(f"[INFO] CSV輸出完成: {csv_path}")
 
     # 更新 manifest.json（供 GitHub Pages 靜態 dashboard 讀取股票清單）
     manifest_path = os.path.join(DATA_PATH, "manifest.json")
@@ -198,13 +197,14 @@ def run_strategy(
         manifest["updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, ensure_ascii=False, indent=2)
-        print(f"💾 Manifest 已更新: {manifest_path}")
+        print(f"[INFO] Manifest 已更新: {manifest_path}")
     except Exception as e:
-        print(f"⚠️ 更新 manifest 略過: {e}")
+        print(f"[WARN] 更新 manifest 略過: {e}")
 
     sig = insight.get("signals", {})
     print(
-        f"📊 完成：Score={sig.get('score',0)} | Trend={sig.get('trend','')} | "
+        "[INFO] 完成："
+        f"Score={sig.get('score',0)} | Trend={sig.get('trend','')} | "
         f"TV={sig.get('tv_score',0)}/5({sig.get('tv_grade','')}) | "
         f"5D集中度={sig.get('concentration_5d',0)}% | 20D集中度={sig.get('concentration_20d',0)}% | "
         f"20D買超家數={sig.get('buy_count_20d',0)} | 20D賣超家數={sig.get('sell_count_20d',0)} | "

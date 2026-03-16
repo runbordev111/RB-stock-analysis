@@ -55,7 +55,7 @@ echo.
 echo [1/6] Running scraper_chip.py for %STOCK_IDS% (days=%DAYS%) ...
 for %%S in (%STOCK_IDS%) do (
     echo --- Running scraper_chip.py for %%S ---
-    python scraper_chip.py --stock_id %%S --days %DAYS%
+    "%ROOT%\venv\Scripts\python.exe" scraper_chip.py --stock_id %%S --days %DAYS%
     if errorlevel 1 (
         echo scraper_chip.py failed for %%S. Please check the error above.
         pause
@@ -65,7 +65,7 @@ for %%S in (%STOCK_IDS%) do (
 
 echo.
 echo [2/6] Rebuilding data\manifest.json ...
-python sub-py\build_manifest.py
+"%ROOT%\venv\Scripts\python.exe" sub-py\build_manifest.py
 
 echo.
 echo [3/6] (skip) backtest_signals_60d.py ...
@@ -74,7 +74,7 @@ echo       python sub-py\backtest_signals_60d.py --stock_ids %STOCK_IDS% --days 
 
 echo.
 echo [4/6] Running Phase 1 analysis (analyze_signal_vs_returns.py) ...
-python sub-py\analyze_signal_vs_returns.py
+"%ROOT%\venv\Scripts\python.exe" sub-py\analyze_signal_vs_returns.py
 if errorlevel 1 (
     echo analyze_signal_vs_returns.py failed. Please check the error above.
     pause
@@ -83,7 +83,7 @@ if errorlevel 1 (
 
 echo.
 echo [5/6] Running Phase 3 ML winrate (ml_signal_winrate.py, horizons 5,10,20) ...
-python sub-py\ml_signal_winrate.py --horizons 5,10,20
+"%ROOT%\venv\Scripts\python.exe" sub-py\ml_signal_winrate.py --horizons 5,10,20
 if errorlevel 1 (
     echo ml_signal_winrate.py failed. Install scikit-learn and joblib: pip install scikit-learn joblib
     pause
@@ -92,7 +92,7 @@ if errorlevel 1 (
 
 echo.
 echo [6/7] Smoke check outputs (smoke_check_artifacts.py) ...
-python sub-py\smoke_check_artifacts.py
+"%ROOT%\venv\Scripts\python.exe" sub-py\smoke_check_artifacts.py
 if errorlevel 1 (
     echo Smoke check failed. Please fix issues above before upload.
     pause
