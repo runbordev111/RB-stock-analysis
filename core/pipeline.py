@@ -435,12 +435,13 @@ def analyze_whale_trajectory(
     raw_score = _safe_float_local(
         signals.get("score_unified", signals.get("score", 0.0)), 0.0
     )
-    base_score = max(0.0, min(50.0, raw_score * 0.5))
+    # 基礎分：保留原有 Score 的影響，但略放大權重（最高 60 分）
+    base_score = max(0.0, min(60.0, raw_score * 0.6))
 
     monitor_state = str(signals.get("monitor_state", "NEUTRAL") or "NEUTRAL").upper()
     monitor_bonus_map = {
-        "ACCUMULATION": 20.0,
-        "MARKUP": 15.0,
+        "ACCUMULATION": 22.0,
+        "MARKUP": 18.0,
         "NEUTRAL": 5.0,
         "FADING": 0.0,
         "DISTRIBUTION": -10.0,
@@ -450,7 +451,7 @@ def analyze_whale_trajectory(
     inst_regime = str(signals.get("inst_regime_flag", "OTHER") or "OTHER").upper()
     regime_bonus = 0.0
     if inst_regime == "BULL_NO_SHORT":
-        regime_bonus = 10.0
+        regime_bonus = 12.0
     elif inst_regime == "BEAR_WITH_SHORT":
         regime_bonus = -10.0
 
@@ -475,9 +476,9 @@ def analyze_whale_trajectory(
         if pos < -0.1:
             cost_bonus = -10.0
         elif pos < 0.3:
-            cost_bonus = 10.0
+            cost_bonus = 12.0
         elif pos <= 1.1:
-            cost_bonus = 5.0
+            cost_bonus = 6.0
         elif pos > 1.3:
             cost_bonus = -5.0
 
