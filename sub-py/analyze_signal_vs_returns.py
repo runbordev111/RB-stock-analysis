@@ -164,8 +164,9 @@ def write_html_report(
         "ret_20d": "20日報酬（ret_20d）",
     }
 
-    # 欄位名稱中文化（mean/median/std/win_rate%）
+    # 欄位名稱中文化（n/mean/median/std/win_rate%）
     col_rename = {
+        "n": "樣本數(N)",
         "mean": "平均值(mean)",
         "median": "中位數(median)",
         "std": "標準差(std)",
@@ -181,15 +182,25 @@ def write_html_report(
         "NEUTRAL": "NEUTRAL（中性觀察）",
     }
 
+    # Inst × Margin × SBL regime 狀態值中文化
+    regime_rename = {
+        "BULL_NO_SHORT": "BULL_NO_SHORT（偏多、空方壓力小）",
+        "BEAR_WITH_SHORT": "BEAR_WITH_SHORT（偏空＋借券/空單壓力）",
+        "OTHER": "OTHER（訊號混雜／方向不明）",
+    }
+
     def _to_html_renamed(tb: pd.DataFrame, index_name: str | None = None) -> str:
         if tb is None or tb.empty:
             return "<p class=\"meta\">此區間暫無樣本。</p>"
         tb2 = tb.copy()
         # 重新命名欄位
         tb2.rename(columns=col_rename, inplace=True)
-        # 重新命名 index（例如 monitor_state）
+        # 重新命名 index（例如 monitor_state / inst_regime_flag）
         if index_name and tb2.index.name == index_name:
-            tb2 = tb2.rename(index=state_rename)
+            if index_name == "monitor_state":
+                tb2 = tb2.rename(index=state_rename)
+            elif index_name == "inst_regime_flag":
+                tb2 = tb2.rename(index=regime_rename)
         return (
             tb2.to_html(classes="n", float_format="%.4f")
             .replace("<th>", "<th class=\"n\">")
@@ -242,12 +253,16 @@ def write_html_report(
         title = ret_label.get(col, col)
         html.append(f"<h3>{title}（不同資金壓力組合）</h3>")
         html.append(
-            _to_html_renamed(tb)
+            _to_html_renamed(tb, index_name="inst_regime_flag")
         )
         html.append("<br/>")
     html.append(
-        "<p class=\"meta\">解讀：BULL_NO_SHORT 代表「三大法人 20 日合計偏多，且融資 / 借券壓力都不明顯」；"
-        "BEAR_WITH_SHORT 則是「三大法人 20 日偏空，且借券壓力放大」。可用來設計多頭候選池（只挑 BULL_NO_SHORT），或避開高風險區（BEAR_WITH_SHORT）。</p>"
+        "<p class=\"meta\">解讀："
+        "樣本數(N)＝這種狀態在歷史上出現了多少個交易日；"
+        "BULL_NO_SHORT（偏多、空方壓力小）＝三大法人 20 日合計偏多，且融資 / 借券壓力都不明顯；"
+        "BEAR_WITH_SHORT（偏空＋借券/空單壓力）＝三大法人 20 日偏空，且借券 / 空單壓力放大；"
+        "OTHER（訊號混雜／方向不明）＝多空訊號互相抵銷或不明顯。"
+        "可用來設計多頭候選池（只挑 BULL_NO_SHORT），或避開高風險區（BEAR_WITH_SHORT）。</p>"
     )
 
     html.append("</body></html>")

@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal
 
 rem === 專案根目錄（本檔放在 RB-stock-analysis 根目錄） ===
@@ -51,10 +52,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem === 直接更新遠端 main：用 msung-data-mining 覆蓋遠端 main ===
+rem === 直接更新遠端 main：用 msung-data-mining 覆蓋遠端 main（強制覆蓋） ===
 echo.
 echo [步驟 2] 將 msung-data-mining 推送為遠端 main（origin/main）...
-git push origin msung-data-mining:main
+git push origin +msung-data-mining:main
 if errorlevel 1 (
     echo.
     echo [錯誤] Push 到 origin/main 失敗，可能是遠端 main 有直接修改。
