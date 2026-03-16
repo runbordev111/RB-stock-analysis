@@ -504,15 +504,16 @@ def analyze_whale_trajectory(
     chip_raw = base_score + monitor_bonus + regime_bonus + conc_bonus + cost_bonus + stab_bonus + risk_bonus
     chip_score = max(0.0, min(100.0, chip_raw))
 
-    if chip_score >= 80.0:
+    # 燈號門檻：以目前市況校正，讓 40~60 分區間視為可觀察帶
+    if chip_score >= 60.0:
         chip_light = "green"
-        chip_comment = "籌碼偏強，主力環境友善，可積極考慮買進或加碼（請仍配合風險控管）。"
-    elif chip_score >= 70.0:
+        chip_comment = "籌碼明顯偏強，主力環境相對友善，可積極列入主力觀察名單（仍需搭配風險控管）。"
+    elif chip_score >= 45.0:
         chip_light = "yellow"
-        chip_comment = "籌碼中等偏多，主力尚稱友善，可列入觀察名單，小部位試單較為合適。"
+        chip_comment = "籌碼中性偏多，主力並不積極但也沒有明顯倒貨跡象，適合小部位試單或持續關注。"
     else:
         chip_light = "red"
-        chip_comment = "目前籌碼不夠友善（主力偏保守或風險較高），建議暫不以此檔為主力標的。"
+        chip_comment = "目前籌碼較不友善（主力偏保守或資金較分散），建議先當作次要標的或等待型態改善。"
 
     signals["chip_score"] = round(chip_score, 1)
     signals["chip_light"] = chip_light
