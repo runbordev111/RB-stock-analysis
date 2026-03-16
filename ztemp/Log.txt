@@ -32,3 +32,5 @@
 2026/03/16 週一 21:31:56.83 - Run [Backup Upload] (upl_rb) 
 2026/03/16 週一 21:32:04.13 - Run [Backup Upload] (upl_rb) 
 2026/03/16 週一 21:33:13.23 - Run [Backup Upload] (upl_rb) 
+2026/03/16 週一 21:38:31.32 - Run [Publish to Pages] (6_publish_to_pages) 
+2026/03/16 週一 21:39:29.89 - Run [Publish to Pages] (6_publish_to_pages) 
