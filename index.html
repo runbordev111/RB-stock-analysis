@@ -220,6 +220,27 @@
     html += '</div><div class="text-end"><span class="badge bg-warning text-dark mb-1">Top 6 核心大戶監控 (10日)</span>';
     html += '<div class="' + statusCls + '">' + (stock.status || '') + '</div><div class="led-group mt-2">' + ledHtml + '</div></div></div>';
 
+    const chipScore = sig.chip_score != null ? sig.chip_score : null;
+    const chipLight = sig.chip_light || 'red';
+    const chipComment = sig.chip_comment || '目前籌碼狀態一般，建議搭配其他條件一起評估。';
+    let chipColor = '#ef4444';
+    let chipLabel = '紅燈（暫不考慮）';
+    if (chipLight === 'green') {
+      chipColor = '#22c55e';
+      chipLabel = '綠燈（可積極考慮）';
+    } else if (chipLight === 'yellow') {
+      chipColor = '#eab308';
+      chipLabel = '黃燈（觀察／小部位）';
+    }
+    html += '<div class="row mb-3 g-3">';
+    html += '<div class="col-md-4"><div class="metric-card" style="border:1px solid #4b5563;background:#111827;text-align:left;">';
+    html += '<div class="metric-label">🎯 籌碼總分卡（不含地緣）</div>';
+    html += '<div class="d-flex align-items-baseline gap-2 mt-1"><div class="metric-value" style="color:' + chipColor + ';font-size:2rem;">' + (chipScore!=null ? chipScore : '-') + '</div><div class="metric-label" style="color:' + chipColor + ';">' + chipLabel + '</div></div>';
+    html += '<div class="metric-label mt-2" style="font-size:0.78rem;white-space:normal;line-height:1.5;">' + chipComment + '</div>';
+    html += '<div class="metric-label mt-1" style="font-size:0.75rem;color:#6b7280;">說明：以主力趨勢、法人/融資/借券環境、20日集中度、主力成本帶位置與大戶名單穩定度為核心，綜合給出 0–100 分的籌碼總評。</div>';
+    html += '</div></div>';
+    html += '</div>';
+
     html += '<div class="metric-card mb-4" style="text-align:left; border:1px solid #333; background:#161616;">';
     html += '<div class="metric-label">📌 大戶監測趨勢</div>';
     html += '<div style="font-size:1.55rem; font-weight:900; color:' + msColor(ms) + ';">' + msZh(ms) + '</div>';
@@ -609,7 +630,10 @@
     const c5 = sig.concentration_5d != null ? sig.concentration_5d : 0;
     const c20 = sig.concentration_20d != null ? sig.concentration_20d : 0;
     const trend = sig.trend || '觀察中';
-    const status = '✅ 籌碼訊號已載入 | Score=' + scoreU + ' | 5D=' + c5 + '% | 20D=' + c20 + '% | ' + trend;
+    const chipScore = sig.chip_score != null ? sig.chip_score : null;
+    const status = '✅ 籌碼訊號已載入 | Score=' + scoreU +
+      ' | 籌碼總分=' + (chipScore != null ? chipScore : '-') +
+      ' | 5D=' + c5 + '% | 20D=' + c20 + '% | ' + trend;
     return {
       id: raw.stock_id,
       name: raw.stock_name || raw.stock_id,

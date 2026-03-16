@@ -422,6 +422,101 @@ def analyze_whale_trajectory(
     # -------------------------
     signals.update(compute_final_pack(signals, cfg))
 
+    # -------------------------
+    # 籌碼總分卡（0-100，跟著大戶走，不含地緣）
+    def _safe_float_local(x, default=0.0):
+        try:
+            if x is None or (isinstance(x, float) and math.isnan(x)):
+                return default
+            return float(x)
+        except Exception:
+            return default
+
+    raw_score = _safe_float_local(
+        signals.get("score_unified", signals.get("score", 0.0)), 0.0
+    )
+    base_score = max(0.0, min(50.0, raw_score * 0.5))
+
+    monitor_state = str(signals.get("monitor_state", "NEUTRAL") or "NEUTRAL").upper()
+    monitor_bonus_map = {
+        "ACCUMULATION": 20.0,
+        "MARKUP": 15.0,
+        "NEUTRAL": 5.0,
+        "FADING": 0.0,
+        "DISTRIBUTION": -10.0,
+    }
+    monitor_bonus = monitor_bonus_map.get(monitor_state, 0.0)
+
+    inst_regime = str(signals.get("inst_regime_flag", "OTHER") or "OTHER").upper()
+    regime_bonus = 0.0
+    if inst_regime == "BULL_NO_SHORT":
+        regime_bonus = 10.0
+    elif inst_regime == "BEAR_WITH_SHORT":
+        regime_bonus = -10.0
+
+    conc20 = _safe_float_local(signals.get("concentration_20d"), 0.0)
+    if conc20 >= 30.0:
+        conc_bonus = 10.0
+    elif conc20 >= 20.0:
+        conc_bonus = 7.0
+    elif conc20 >= 10.0:
+        conc_bonus = 3.0
+    else:
+        conc_bonus = 0.0
+
+    enh = signals.get("enhanced") or {}
+    c_low = _safe_float_local(enh.get("cost_low"), None)
+    c_high = _safe_float_local(enh.get("cost_high"), None)
+    c_close = _safe_float_local(enh.get("close_last"), None)
+    cost_bonus = 0.0
+    if c_low is not None and c_high is not None and c_close is not None and c_high > c_low:
+        span = c_high - c_low
+        pos = (c_close - c_low) / span if span > 0 else 0.0
+        if pos < -0.1:
+            cost_bonus = -10.0
+        elif pos < 0.3:
+            cost_bonus = 10.0
+        elif pos <= 1.1:
+            cost_bonus = 5.0
+        elif pos > 1.3:
+            cost_bonus = -5.0
+
+    stab20 = signals.get("top15_buy_stability_20d")
+    stab_bonus = 0.0
+    if stab20 is not None:
+        stab20f = _safe_float_local(stab20, 0.0)
+        if stab20f >= 0.6:
+            stab_bonus = 5.0
+        elif stab20f <= 0.3:
+            stab_bonus = -5.0
+
+    risk_pack = signals.get("risk") or {}
+    atr_pct_20d = risk_pack.get("atr_pct_20d", signals.get("atr_pct_20d"))
+    risk_bonus = 0.0
+    if atr_pct_20d is not None:
+        atrf = _safe_float_local(atr_pct_20d, 0.0)
+        if atrf >= 0.10:
+            risk_bonus = -5.0
+        elif atrf >= 0.07:
+            risk_bonus = -3.0
+
+    chip_raw = base_score + monitor_bonus + regime_bonus + conc_bonus + cost_bonus + stab_bonus + risk_bonus
+    chip_score = max(0.0, min(100.0, chip_raw))
+
+    if chip_score >= 80.0:
+        chip_light = "green"
+        chip_comment = "籌碼偏強，主力環境友善，可積極考慮買進或加碼（請仍配合風險控管）。"
+    elif chip_score >= 70.0:
+        chip_light = "yellow"
+        chip_comment = "籌碼中等偏多，主力尚稱友善，可列入觀察名單，小部位試單較為合適。"
+    else:
+        chip_light = "red"
+        chip_comment = "目前籌碼不夠友善（主力偏保守或風險較高），建議暫不以此檔為主力標的。"
+
+    signals["chip_score"] = round(chip_score, 1)
+    signals["chip_light"] = chip_light
+    signals["chip_comment"] = chip_comment
+
     insight: Insight = {
         "history_labels": [d[5:] for d in date_10d],  # MM-DD
         "whale_data": whale_data,
