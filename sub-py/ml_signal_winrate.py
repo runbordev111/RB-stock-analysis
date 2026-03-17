@@ -178,6 +178,7 @@ def _save_artifacts(
         "inst_three_net_20d": "三大法人 20日買賣超",
         "inst_three_net_60d": "三大法人 60日買賣超",
         # 買賣壓 / 借券 / 融資相關
+        "sbl_volume_5d": "借券成交量 5日",
         "sbl_volume_60d": "借券成交量 60日",
         "margin_balance_20d_change": "融資餘額 20日變化",
         # 分數 / 百分位相關
@@ -362,7 +363,7 @@ def run_ml(
             win1 = float(y_test[idx1].mean()) if n1 > 0 else float("nan")
             rule_stats.append(
                 {
-                    "name": "inst_three_net_20d>0 & no_margin_sbl_pressure",
+                    "name": "三大法人20日合計>0 且 融資/借券壓力正常（inst_three_net_20d>0 & no_margin_sbl_pressure）",
                     "n": n1,
                     "win_rate": win1,
                 }
@@ -379,7 +380,7 @@ def run_ml(
             win2 = float(y_test[idx2].mean()) if n2 > 0 else float("nan")
             rule_stats.append(
                 {
-                    "name": "inst_three_net_20d<0 & sbl_short_pressure_flag==1",
+                    "name": "三大法人20日合計<0 且 借券壓力放大（inst_three_net_20d<0 & sbl_short_pressure_flag==1）",
                     "n": n2,
                     "win_rate": win2,
                 }
