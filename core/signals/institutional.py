@@ -304,6 +304,17 @@ def compute_institutional_and_margin_signals(
         out["sbl_volume_20d"] = _last_n_sum_safe(vol, 20)
         out["sbl_volume_60d"] = _last_n_sum_safe(vol, 60)
 
+        # 近 60 日逐日借券量序列（給 dashboard 畫「借券異常尖峰」）
+        if not vol.empty:
+            tail_vol = vol.tail(60)
+            out["sbl_volume_series_60d"] = [float(x) for x in tail_vol.tolist()]
+            # 對應的日期標籤，預設使用 MM-DD 方便閱讀
+            tail_dates = dfs.loc[tail_vol.index, "date"].astype(str).tolist()
+            out["sbl_labels_60d"] = [
+                d[5:] if len(d) >= 10 and d[4] == "-" and d[7] == "-" else d
+                for d in tail_dates
+            ]
+
         # 以 60 日平均為 baseline，最近 20 日是否明顯放大
         if len(vol) >= 20:
             avg_60 = float(vol.tail(60).mean()) if len(vol) >= 60 else float(vol.mean())

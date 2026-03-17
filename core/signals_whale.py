@@ -286,18 +286,27 @@ def compute_master_trend(signals: dict) -> dict:
     elif direction < -0.25:
         tags.append("淨賣主導")
 
-    if strength >= 0.70 and direction > 0.20 and breadth > 0.10:
+    # 門檻調整（2025-03）：原 0.70/0.20/0.10 過嚴，多數落震盪。建議值：
+    # - 偏多/偏空：strength 0.55, direction ±0.15, breadth ±0.08
+    # - 吸籌/派發：strength 0.38, direction/breadth ±0.08
+    if strength >= 0.55 and direction > 0.15 and breadth > 0.08:
         trend = "多" if div > 0.10 else "偏多"
         tags.append("強度高")
-    elif strength >= 0.70 and direction < -0.20 and breadth < -0.10:
+    elif strength >= 0.55 and direction < -0.15 and breadth < -0.08:
         trend = "空" if div > 0.10 else "偏空"
         tags.append("強度高")
-    elif direction > 0.10 and breadth > 0.10 and strength >= 0.45:
+    elif direction > 0.08 and breadth > 0.08 and strength >= 0.38:
         trend = "吸籌"
         tags.append("中等強度")
-    elif direction < -0.10 and breadth < -0.10 and strength >= 0.45:
+    elif direction < -0.08 and breadth < -0.08 and strength >= 0.38:
         trend = "派發"
         tags.append("中等強度")
+    elif direction > 0.12 and breadth > 0.05:
+        trend = "偏多"
+        tags.append("方向偏多")
+    elif direction < -0.12 and breadth < -0.05:
+        trend = "偏空"
+        tags.append("方向偏空")
     else:
         trend = "震盪"
         tags.append("方向拉扯")

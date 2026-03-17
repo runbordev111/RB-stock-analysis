@@ -164,6 +164,23 @@
     if (tag.indexOf('baseline_all')>=0) return '以全市場作為基準';
     return tag;
   }
+  function baselineTagZh(tag){
+    if (!tag) return '-';
+    if (tag === 'baseline_all') return '全市場基準';
+    if (tag.indexOf('baseline_org_city:')===0) {
+      var m = tag.match(/baseline_org_city:(\w+)_(.+)/);
+      if (m) {
+        var orgZh = { local:'本土', foreign:'外資', na:'-' }[m[1]] || m[1];
+        return orgZh + '券商（' + (m[2]==='na'?'-' : m[2]) + '）';
+      }
+    }
+    if (tag.indexOf('baseline_org:')===0) {
+      var org = tag.replace('baseline_org:','');
+      var orgZh = { local:'本土', foreign:'外資', na:'-' }[org] || org;
+      return orgZh + '券商';
+    }
+    return tag;
+  }
   function reasonZh(code){
     const map = {
       dist_risk_on: '派發風險ON（集中風險）',
@@ -264,7 +281,7 @@
 
     html += '<div class="row mb-4"><div class="col-md-4"><div class="metric-card"><div class="metric-label">地緣評分</div><div class="metric-value">' + geo + '</div><div class="metric-label mt-1">' + geoTagZh(sig.geo_tag || '') + '</div></div></div>';
     html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">前五分點距離加權均值(KM)</div><div class="metric-value">' + (sig.geo_top5_wavg_km != null ? sig.geo_top5_wavg_km : '-') + '</div><div class="metric-label mt-1">Z 分數：' + (sig.geo_zscore != null ? sig.geo_zscore : '-') + ' ｜ 親近度：' + (sig.geo_affinity_score != null ? sig.geo_affinity_score : '-') + '</div></div></div>';
-    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">基準 / 權重 / 調整</div><div class="metric-value" style="font-size:1rem;">' + (sig.geo_baseline_tag === "baseline_all" ? "全市場基準" : (sig.geo_baseline_tag || '-')) + '</div><div class="metric-label mt-1">權重 w=' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' ｜ 調整值 adj=' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
+    html += '<div class="col-md-4"><div class="metric-card"><div class="metric-label">基準／權重／調整</div><div class="metric-value" style="font-size:1rem;">' + baselineTagZh(sig.geo_baseline_tag) + '</div><div class="metric-label mt-1">權重＝' + (sig.geo_baseline_weight != null ? sig.geo_baseline_weight : '-') + ' ｜ 調整值＝' + (sig.geo_adjust != null ? sig.geo_adjust : '-') + '</div></div></div></div>';
 
     var g5 = sig.geo_top5_detail || [];
     // Geo Top5 詳細資訊已整合到下方 Top 6 表格中的 KM 欄位，這裡不再另外顯示獨立表格。
@@ -299,7 +316,13 @@
     }
 
     html += '<h6 class="text-info-dash mt-4 mb-2">📡 TV 主力行為偵測</h6><div class="row mb-4 g-3">';
-    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">TV 綜合得分</div><div class="metric-value">' + (sig.tv_score != null ? sig.tv_score : 0) + '</div><div class="metric-label">' + (sig.tv_grade || '') + '</div></div></div>';
+    var tvScore = sig.tv_score != null ? sig.tv_score : 0;
+    var tvGrade = sig.tv_grade || 'weak';
+    var tvGradeMap = { weak:'弱勢觀察', watch:'關注中', strong:'積極行為' };
+    var tvColorMap = { weak:'#9ca3af', watch:'#eab308', strong:'#22c55e' };
+    var tvZh = tvGradeMap[tvGrade] || tvGrade;
+    var tvColor = tvColorMap[tvGrade] || '#9ca3af';
+    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">TV 綜合得分</div><div class="metric-value" style="color:' + tvColor + ';">' + tvScore + '</div><div class="metric-label" style="color:' + tvColor + ';">' + tvZh + '</div></div></div>';
     html += '<div class="col-md-9"><div class="metric-card" style="text-align:left;"><div class="metric-label mb-2">五大價格訊號</div><div class="d-flex flex-wrap gap-2">';
     var tvNames = {sig_vwap:'均價偏離',sig_accumulation:'吸籌訊號',sig_rotation:'換手/輪動',sig_profile_zone:'價量重心',sig_structure_break:'結構突破'};
     ['sig_vwap','sig_accumulation','sig_rotation','sig_profile_zone','sig_structure_break'].forEach(function(k){
@@ -309,10 +332,18 @@
     });
     html += '</div></div></div></div>';
 
+    var n1 = sig.netbuy_1d_lot != null ? Number(sig.netbuy_1d_lot) : null;
+    var n5 = sig.netbuy_5d_lot != null ? Number(sig.netbuy_5d_lot) : null;
+    var n20 = sig.netbuy_20d_lot != null ? Number(sig.netbuy_20d_lot) : null;
+    var allZero = (n1 === 0 || n1 === null) && (n5 === 0 || n5 === null) && (n20 === 0 || n20 === null);
+    var tvFlowDesc = allZero
+      ? 'TV 主力近 20 日幾乎沒有明顯淨買賣，僅供參考。'
+      : 'TV 主力近期有實際淨買賣行為，可搭配籌碼、趨勢一起評估。';
+
     html += '<div class="row mb-4 g-3"><div class="col-md-3"><div class="metric-card"><div class="metric-label">主力得分</div><div class="metric-value">' + scoreU + '</div></div></div>';
-    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">1日 NetBuy(張)</div><div class="metric-value">' + (sig.netbuy_1d_lot != null ? sig.netbuy_1d_lot : '-') + '</div></div></div>';
-    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">5日 NetBuy(張)</div><div class="metric-value">' + (sig.netbuy_5d_lot != null ? sig.netbuy_5d_lot : '-') + '</div></div></div>';
-    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">20日 NetBuy(張)</div><div class="metric-value">' + (sig.netbuy_20d_lot != null ? sig.netbuy_20d_lot : '-') + '</div></div></div></div>';
+    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">1日 NetBuy(張)</div><div class="metric-value">' + (n1 != null ? n1 : '-') + '</div></div></div>';
+    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">5日 NetBuy(張)</div><div class="metric-value">' + (n5 != null ? n5 : '-') + '</div></div></div>';
+    html += '<div class="col-md-3"><div class="metric-card"><div class="metric-label">20日 NetBuy(張)</div><div class="metric-value">' + (n20 != null ? n20 : '-') + '</div><div class="metric-label mt-1" style="font-size:0.75rem;color:#9ca3af;">' + tvFlowDesc + '</div></div></div></div>';
 
     // 三大法人 × 融資 × 借券 Regime 卡片
     var instThree20 = Number(sig.inst_three_net_20d || 0);
@@ -344,6 +375,8 @@
     // Inst vs SBL 雙軸圖（20日）
     html += '<h6 class="text-info-dash mt-3 mb-2">📈 三大法人 vs 借券量（20日，雙軸）</h6>';
     html += '<div class="chart-container-mini" style="height:260px;"><canvas id="instSblCanvas"></canvas></div>';
+    html += '<h6 class="text-info-dash mt-3 mb-2">📌 借券異常尖峰（近 60 日）</h6>';
+    html += '<div class="chart-container-mini" style="height:220px;"><canvas id="sblSpikeCanvas"></canvas></div>';
 
     var st10 = sig.top15_buy_stability_10d != null ? (sig.top15_buy_stability_10d*100).toFixed(1) + '%' : '-';
     var st20 = sig.top15_buy_stability_20d != null ? (sig.top15_buy_stability_20d*100).toFixed(1) + '%' : '-';
@@ -621,6 +654,96 @@
           }
         });
       }
+    }
+
+    // 借券異常尖峰圖（預期使用近 60 日逐日借券量）
+    var sblSpikeCtx = document.getElementById('sblSpikeCanvas');
+    var sblSer60 = Array.isArray(sig.sbl_volume_series_60d) ? sig.sbl_volume_series_60d : [];
+    var sblLabels60 = Array.isArray(sig.sbl_labels_60d) ? sig.sbl_labels_60d : (stock.history_labels || []);
+    if (sblSpikeCtx && sblSer60.length && sblLabels60.length === sblSer60.length) {
+      var n60 = sblSer60.length;
+      var sum60 = sblSer60.reduce(function(acc, v){ return acc + (Number(v) || 0); }, 0);
+      var mu60 = sum60 / n60;
+      var var60 = sblSer60.reduce(function(acc, v){
+        var x = (Number(v) || 0) - mu60;
+        return acc + x * x;
+      }, 0) / Math.max(1, n60 - 1);
+      var sd60 = Math.sqrt(var60);
+      if (!isFinite(sd60) || sd60 < 1e-6) sd60 = 1.0;
+
+      var zSeries = sblSer60.map(function(v){
+        return ((Number(v) || 0) - mu60) / sd60;
+      });
+      var spikeSeries = sblSer60.map(function(v, idx){
+        var z = zSeries[idx];
+        var val = Number(v) || 0;
+        return (z >= 2.0 && val >= mu60 * 3.0) ? val : null;
+      });
+      var meanLine = sblSer60.map(function(){ return mu60; });
+
+      charts.sblSpike = new Chart(sblSpikeCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: sblLabels60,
+          datasets: [
+            {
+              label: '借券量（張）',
+              data: sblSer60,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56,189,248,0.2)',
+              borderWidth: 2,
+              tension: 0.1,
+              pointRadius: 1.5
+            },
+            {
+              label: '60日平均',
+              data: meanLine,
+              borderColor: '#9ca3af',
+              borderWidth: 1,
+              borderDash: [6, 6],
+              pointRadius: 0
+            },
+            {
+              label: '異常尖峰',
+              data: spikeSeries,
+              type: 'scatter',
+              pointBackgroundColor: '#ef4444',
+              pointBorderColor: '#f97316',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              showLine: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: {
+              grid: { color: '#333' },
+              ticks: { color: '#aaa', maxRotation: 0, autoSkip: true }
+            },
+            y: {
+              grid: { color: '#333' },
+              ticks: { color: '#aaa' },
+              title: { display: true, text: '借券成交量（張）', color: '#aaa' }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: function(ctx){
+                  var v = ctx.parsed.y;
+                  var z = zSeries[ctx.dataIndex];
+                  return ' 借券量：' + v + ' 張（z=' + z.toFixed(2) + '）';
+                }
+              }
+            }
+          }
+        }
+      });
     }
 
     var buyList = (sig.top_buy_15 || []).slice(0, 15).sort(function(a,b){ return (b.net_lot||0) - (a.net_lot||0); });
