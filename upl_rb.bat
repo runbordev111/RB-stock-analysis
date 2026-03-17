@@ -27,8 +27,11 @@ echo %date% %time% - Run [Backup Upload] (upl_rb) >> "%ROOT%\ztemp\Log.txt"
 rem Default local/remote branch
 set "REMOTE_BRANCH=msung-data-mining"
 
-rem Stage current changes (respecting .gitignore)
-git add .
+rem Stage current changes（只加主要程式與設定，避免 venv 等雜檔）
+git status
+echo.
+echo [upl_rb] Staging tracked source files...
+git add core sub-py templates index.html README.md requirements.txt *.bat .gitignore Version.txt data\*.json data\*.html
 git status
 
 set "BRANCH="
